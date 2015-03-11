@@ -1,21 +1,31 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package distributedwhiteboard;
+
+import distributedwhiteboard.gui.WhiteboardGUI;
+import javax.swing.SwingUtilities;
 
 /**
  *
  * @author Jordan
  */
-public class Distributedwhiteboard {
+public class Distributedwhiteboard 
+{
 
     /**
      * @param args the command line arguments
      */
-    public static void main(String[] args) {
-        // TODO code application logic here
+    public static void main(String[] args) 
+    {
+        for (DrawMode mode : DrawMode.values())
+            System.out.println(mode);
+        
+        SwingUtilities.invokeLater(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                WhiteboardGUI gui = WhiteboardGUI.getInstance();
+            }
+        });
     }
     
 }
