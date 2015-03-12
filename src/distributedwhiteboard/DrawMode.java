@@ -1,15 +1,39 @@
 package distributedwhiteboard;
 
 /**
- *
- * @author Jordan
+ * {@link DrawMode} holds all the possible drawing modes this application 
+ * supports.
+ * 
+ * @author 6266215
+ * @version 1.1
+ * @since 2015-03-11
  */
 public enum DrawMode
 {
+    /** 
+     * Draws straight lines between two points.
+     * @since 1.0
+     */
     LINE,
+    /** 
+     * Draws a {@link String} at a specified point.
+     * @since 1.0
+     */
     TEXT,
+    /** 
+     * Draws straight lines between points, but joins the last and first.
+     * @since 1.1
+     */
     POLYGON,
+    /** 
+     * Allows the user to click and drag a arbritrary shape.
+     * @since 1.1
+     */
     FREEFORM_LINE,
+    /** 
+     * Draws a rectangle between two points.
+     * @since 1.1
+     */
     RECTANGLE;
     
     /**

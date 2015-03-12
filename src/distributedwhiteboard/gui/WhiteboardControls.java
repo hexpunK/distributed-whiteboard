@@ -29,24 +29,36 @@ import javax.swing.border.MatteBorder;
 import say.swing.JFontChooser;
 
 /**
+ * Provides a set of controls to handle drawing to a specified {@link 
+ * WhiteboardCanvas}. The controls allow the selection of drawing mode, drawing 
+ * colour, line width, font and shape border settings.
  *
- * @author Jordan
+ * @author 6266215
+ * @version 1.1
+ * @since 2015-03-11
  */
-public class WhiteboardControls 
-        extends JPanel 
-        implements ActionListener, 
-                ItemListener, 
-                KeyListener, 
-                MouseListener,
-                MouseMotionListener
+public class WhiteboardControls extends JPanel 
+        implements ActionListener,  // Listen for button clicks.
+                ItemListener,       // Listen for checkbox/ combobox changes.
+                KeyListener,        // Listen for keyboard events.
+                MouseListener,      // Listen for mouse clicks.
+                MouseMotionListener // Listen for mouse movements.
 {
+    /** Serialisation ID. */
     private static final long serialVersionUID = -6184851091001506327L;
-    private static final String TEXT = "text";
-    private static final String DRAWING = "drawing";
+    /** Identifier for the text tools card. */
+    private static final String TEXT = "TEXT";
+    /** Identifier for the shape tools card. */
+    private static final String DRAWING = "SHAPES";
     
+    // <editor-fold defaultstate="collapsed" desc="Swing components">
+    /** The {@link WhiteboardCanvas} to draw to. */
     private final WhiteboardCanvas canvas;
+    /** The layout for the various tool bars. */
     private final FlowLayout layout;
+    /** A {@link CardLayout} to hide tool panels. */
     private final CardLayout toolLayout;
+    // Tons of other Swing components.
     private final JPanel toolBox, fontTools, drawTools;
     private final JComboBox<DrawMode> modeSelect;
     private final JComboBox<Integer> weightSelect, borderWSelect;
@@ -54,13 +66,27 @@ public class WhiteboardControls
     private final JButton colourPicker, fontPicker, borderPicker;
     private final JToggleButton boldButton, italicButton;
     private final JLabel modeLabel, weightLabel, borderWLabel;
+    // </editor-fold>
+    // Points for drawing lines.
     private Point lastPoint, firstPoint;
+    // The current drawing mode.
     private DrawMode mode;
+    // Colours for shapes and borders.
     private Color colour, borderColour;
+    // The currently selected font.
     private Font font;
+    // Line and border weights.
     private int lineWeight, borderWeight;
+    // Settings for extra shape drawing features.
     private boolean fillShape, borderShape;
     
+    /**
+     * Set up a new set of {@link WhiteboardControls} for a specified {@link 
+     * WhiteboardCanvas}.
+     * 
+     * @param canvas The {@link WhiteboardCanvas} to control.
+     * @since 1.0
+     */
     public WhiteboardControls(WhiteboardCanvas canvas)
     {
         super();
@@ -119,10 +145,15 @@ public class WhiteboardControls
         this.firstPoint = null;
         this.fillShape = false;
         this.borderShape = false;
-        this.borderWeight = -1;
+        this.borderWeight = 1;
         this.borderColour = Color.WHITE;
     }
     
+    /**
+     * Attach the various listeners to the components that need them.
+     * 
+     * @since 1.0
+     */
     public void setupLayout()
     {
         colourPicker.addActionListener(this);
@@ -168,6 +199,11 @@ public class WhiteboardControls
         toolLayout.show(toolBox, DRAWING);
     }
     
+    /**
+     * Display the text editing controls.
+     * 
+     * @since 1.0
+     */
     public void enableFontControls()
     {
         boldButton.setSelected(font.isBold());
@@ -178,6 +214,11 @@ public class WhiteboardControls
         }
     }
     
+    /**
+     * Hide the text editing controls.
+     * 
+     * @since 1.0
+     */
     public void disableFontControls()
     {
         boldButton.setSelected(false);
@@ -188,14 +229,28 @@ public class WhiteboardControls
         }
     }
     
+    /**
+     * Enable the shape editing and drawing tools.
+     * 
+     * @since 1.0
+     */
     public void enableDrawControls()
     {
         Component[] drawControls = drawTools.getComponents();
         for (Component com : drawControls) {
             com.setEnabled(true);
         }
+        if (!borderShape) {
+            borderPicker.setEnabled(false);
+            borderWSelect.setEnabled(false);
+        }
     }
     
+    /**
+     * Disable the shape editing and drawing tools.
+     * 
+     * @since 1.0
+     */
     public void disableDrawControls()
     {
         Component[] drawControls = drawTools.getComponents();
@@ -204,51 +259,83 @@ public class WhiteboardControls
         }
     }
     
+    /**
+     * Draw a line from a stored point to the next point on the referenced 
+     * {@link WhiteboardCanvas}. If there is no stored point, nextPoint will be 
+     * stored until the next invocation of this method.
+     * 
+     * @param nextPoint The {@link Point} to draw a line to. If no point is 
+     * currently stored, this point will be stored.
+     * @since 1.0
+     */
     public void drawLine(Point nextPoint)
     {
-        if (firstPoint == null)
+        if (firstPoint == null) // Store the first point passed if none is held.
             firstPoint = nextPoint;
-        if (lastPoint == null)
+        if (lastPoint == null) {
             lastPoint = nextPoint;
-        else {
-            if (lineWeight <= 0)
-                lastPoint = canvas.drawLine(lastPoint, nextPoint, colour, 1);
-            else
-                lastPoint = canvas.drawLine(lastPoint, nextPoint, colour, lineWeight);
+            return;
         }
+        
+        lastPoint = canvas.drawLine(lastPoint, nextPoint, colour, lineWeight);
     }
     
+    /**
+     * Draws a rectangle to the referenced {@link WhiteboardCanvas}. The first 
+     * invocation of this will store the origin of a rectangle, and the next 
+     * invocation will calculate the width and height of the rectangle to draw.
+     * 
+     * @param point The {@link Point} to act as the origin and target size of 
+     * the rectangle to draw.
+     * @since 1.1
+     */
     public void drawRect(Point point)
     {
         if (firstPoint == null) {
-            System.out.printf("Added rectangle origin - x: %d, y: %d\n", point.x, point.y);
             firstPoint = point;
         } else {
             Dimension rectSize = new Dimension(
                     point.x - firstPoint.x, 
                     point.y - firstPoint.y
             );
-            System.out.printf("Set rectangle endpoint.\n\tPos - x: %d y: %d, w : %d, h: %d\n", point.x, point.y, rectSize.width, rectSize.height);
-            if (rectSize.width < 0 && rectSize.height > 0) { // Point is top-right
+            
+            // Adjust the origin point to allow for negative widths and heights.
+            if (rectSize.width < 0 && rectSize.height > 0) { 
                 firstPoint = new Point(point.x, firstPoint.y);
-            } else if (rectSize.width > 0 && rectSize.height < 0) { // Point is bottom-left
+            } else if (rectSize.width > 0 && rectSize.height < 0) { 
                 firstPoint = new Point(firstPoint.x, point.y);
-            } else if (rectSize.width < 0 && rectSize.height < 0) { // Point is bottom-right
+            } else if (rectSize.width < 0 && rectSize.height < 0) { 
                 firstPoint = new Point(point.x, point.y);
             }
+            // Draw the rectangle.
             lastPoint = canvas.drawRectangle(firstPoint, rectSize, colour, 
                     fillShape, borderShape, borderWeight, borderColour);
-            firstPoint = null;
+            firstPoint = null; // Reset the origin point.
         }
     }
     
+    /**
+     * Draw a {@link String} to the referenced {@link WhiteboardCanvas}. The 
+     * drawing point for this text is set by clicking the canvas before typing.
+     * 
+     * @param s The {@link String} to draw to the canvas.
+     * @since 1.0
+     */
     public void drawText(String s)
     {
         if (lastPoint != null)
             lastPoint = canvas.drawText(s, lastPoint, font, colour);
     }
         
-    private void showFontChooser()
+    /**
+     * Displays the font choosing dialog. Sets the font to use when drawing 
+     * text to the canvas.
+     * 
+     * @return Returns the new {@link Font} is one is chosen, otherwise returns 
+     * the current {@link Font}.
+     * @since 1.0
+     */
+    private Font showFontChooser()
     {
         Font newFont = null;
         JFontChooser fontChooser = new JFontChooser();
@@ -262,10 +349,20 @@ public class WhiteboardControls
 		if (newFont != null) {
             boldButton.setSelected(newFont.isBold());
             italicButton.setSelected(newFont.isItalic());
-            font = newFont;
+            return newFont;
         }
+        
+        return font;
     }
     
+    /**
+     * Shows the colour picker dialog. If no new colour is picked, the existing 
+     * colour will be returned instead.
+     * 
+     * @return Returns the new {@link Color} if one is chosen, otherwise returns 
+     *  the existing {@link Color}.
+     * @since 1.0
+     */
     private Color showColourPicker()
     {
         Color newCol = JColorChooser.showDialog(this, "Choose Colour", colour);
@@ -275,6 +372,12 @@ public class WhiteboardControls
         return colour;
     }
     
+    /**
+     * Toggles the state of the current {@link Font} style for bold. If both 
+     * bold and italics are enabled this will set the style appropriately.
+     * 
+     * @since 1.0
+     */
     private void toggleBold()
     {
         if (boldButton.isSelected()) {
@@ -283,6 +386,7 @@ public class WhiteboardControls
             else
                 font = font.deriveFont(Font.BOLD);
         } else {
+            // Font isn't currently bolded. Set italic style as needed.
             if (italicButton.isSelected())
                 font = font.deriveFont(Font.ITALIC);
             else
@@ -290,6 +394,12 @@ public class WhiteboardControls
         }
     }
     
+    /**
+     * Toggles the state of the current {@link Font} style for italics. If both 
+     * bold and italics are enabled this will set the style appropriately.
+     * 
+     * @since 1.0
+     */
     private void toggleItalics()
     {
         if (italicButton.isSelected()) {
@@ -298,6 +408,7 @@ public class WhiteboardControls
             else
                 font = font.deriveFont(Font.ITALIC);
         } else {
+            // Font isn't currently italic. Set bold style as needed.
             if (boldButton.isSelected())
                 font = font.deriveFont(Font.BOLD);
             else
@@ -305,6 +416,13 @@ public class WhiteboardControls
         }
     }
 
+    /**
+     * Handles various button presses.
+     * 
+     * @param e The {@link ActionEvent} sent by any button that has been 
+     * interacted with.
+     * @since 1.0
+     */
     @Override
     public void actionPerformed(ActionEvent e)
     {
@@ -313,7 +431,7 @@ public class WhiteboardControls
         else if (e.getSource() == borderPicker)
             borderColour = showColourPicker();
         else if (e.getSource() == fontPicker)
-            showFontChooser();
+            font = showFontChooser();
         else if (e.getSource() == boldButton)
             toggleBold();
         else if (e.getSource() == italicButton)
@@ -322,6 +440,13 @@ public class WhiteboardControls
             System.err.printf("Unknown action! (%s)\n", e.paramString());
     }
     
+    /**
+     * Sets the currently active drawing mode based on the value selected in the
+     *  "Drawing Mode" combo box.
+     * 
+     * @param e The {@link ItemEvent} sent by the mode selection combo box.
+     * @since 1.0
+     */
     private void modeSelectAction(ItemEvent e)
     {
         mode = (DrawMode)e.getItem();
@@ -346,18 +471,38 @@ public class WhiteboardControls
         }
     }
     
+    /**
+     * Changes the size of something based on the value selected in a combo box.
+     * 
+     * @param e The {@link ItemEvent} sent by the combo box.
+     * @return Returns an int containing the number selected in the combo box.
+     * @since 1.0
+     */
     private int sizeSelectAction(ItemEvent e)
     {
         Integer newSize = (Integer)e.getItem();
         return newSize;
     }
     
+    /**
+     * Handles check boxes being toggled on or off.
+     * 
+     * @param e The {@link ItemEvent} sent by the changed check box.
+     * @return Returns true if the check box has been ticked, false otherwise.
+     * @since 1.0
+     */
     private boolean checkBoxAction(ItemEvent e)
     {
         Boolean toggle = ((JCheckBox)e.getItem()).isSelected();
         return toggle;
     }
 
+    /**
+     * Handles events sent by combo boxes and check boxes.
+     * 
+     * @param e The {@link ItemEvent} sent from either a combo box or check box.
+     * @since 1.0
+     */
     @Override
     public void itemStateChanged(ItemEvent e)
     {
@@ -376,6 +521,12 @@ public class WhiteboardControls
         }
     }
 
+    /**
+     * Draws the character received in the {@link KeyEvent} to the canvas.
+     * 
+     * @param e The {@link KeyEvent} sent by the canvas.
+     * @since 1.0
+     */
     @Override
     public void keyTyped(KeyEvent e)
     {
@@ -385,12 +536,14 @@ public class WhiteboardControls
         }
     }
 
-    @Override
-    public void keyPressed(KeyEvent e) { }
-
-    @Override
-    public void keyReleased(KeyEvent e) { }
-
+    /**
+     * Sets the starting and next points for the various drawing tools, or the 
+     * origin for a text drawing.
+     * 
+     * @param e The {@link MouseEvent} sent by the canvas, we're only interested
+     *  in mouse clicks for certain drawing modes.
+     * @since 1.0
+     */
     @Override
     public void mouseClicked(MouseEvent e)
     {
@@ -401,49 +554,51 @@ public class WhiteboardControls
             case LINE:
             case POLYGON:
                 switch(e.getButton()) {
-                    case MouseEvent.BUTTON1:
-                        System.out.printf("Added line point - x: %d, y: %d\n", newPoint.x, newPoint.y);
+                    case MouseEvent.BUTTON1: // Set next point.
                         drawLine(newPoint);
                         break;
-                    case MouseEvent.BUTTON3:
+                    case MouseEvent.BUTTON3: // Cancel drawing/ finish polygon.
                         if (mode == DrawMode.POLYGON) {
-                            System.out.println("Completing polygon.");
                             drawLine(firstPoint);
                         }
-                        System.out.println("Cancelled line drawing.");
                         lastPoint = null;
                         firstPoint = null;
                         break;
                     default:
-                        System.err.printf("Mouse button '%d' does nothing\n", e.getButton());
+                        System.err.printf("Mouse button '%d' does nothing\n", 
+                                e.getButton());
                 }
                 break;
             case RECTANGLE:
                 switch(e.getButton()) {
-                    case MouseEvent.BUTTON1:
+                    case MouseEvent.BUTTON1: // Set origin/ end point.
                         drawRect(newPoint);
                         break;
-                    case MouseEvent.BUTTON3:
-                        System.out.println("Cancelled rectangle drawing.");
+                    case MouseEvent.BUTTON3: // Cancel drawing.
                         lastPoint = null;
                         firstPoint = null;
                         break;
                     default:
-                        System.err.printf("Mouse button '%d' does nothing\n", e.getButton());
+                        System.err.printf("Mouse button '%d' does nothing\n", 
+                                e.getButton());
                 }
                 break;
             case TEXT:
-                System.out.printf("Set text start point - x: %d, y: %d\n", newPoint.x, newPoint.y);
                 lastPoint = newPoint;
                 break;
             default:
-                System.err.printf("Drawing mode %s not implemented.\n", mode);
+                System.err.printf("Drawing mode '%s' not implemented.\n", mode);
         }
     }
 
-    @Override
-    public void mousePressed(MouseEvent e) { }
-
+    /**
+     * If drawing a {@link DrawMode#FREEFORM_LINE}, this will cancel the line 
+     * drawing and clear the last stored {@link Point} to prevent extra lines 
+     * being drawn.
+     * 
+     * @param e The {@link MouseEvent} sent by the canvas.
+     * @since 1.1
+     */
     @Override
     public void mouseReleased(MouseEvent e)
     {
@@ -451,12 +606,14 @@ public class WhiteboardControls
             lastPoint = null;
     }
 
-    @Override
-    public void mouseEntered(MouseEvent e) { }
-
-    @Override
-    public void mouseExited(MouseEvent e) { }
-
+    /**
+     * If drawing a {@link DrawMode#FREEFORM_LINE}, this will continuously draw 
+     * line segments as the mouse moves with {@link MouseEvent#BUTTON1} held 
+     * down.
+     * 
+     * @param e The {@link MouseEvent} sent by the canvas.
+     * @since 1.1
+     */
     @Override
     public void mouseDragged(MouseEvent e)
     {
@@ -469,6 +626,23 @@ public class WhiteboardControls
         }
     }
 
+    // <editor-fold defaultstate="collapsed" desc="Unimplemented handlers.">
+    @Override
+    public void keyPressed(KeyEvent e) { }
+
+    @Override
+    public void keyReleased(KeyEvent e) { }
+
+    @Override
+    public void mousePressed(MouseEvent e) { }
+
+    @Override
+    public void mouseEntered(MouseEvent e) { }
+
+    @Override
+    public void mouseExited(MouseEvent e) { }
+    
     @Override
     public void mouseMoved(MouseEvent e) { }
+    // </editor-fold>
 }
