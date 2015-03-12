@@ -3,7 +3,13 @@ package distributedwhiteboard.gui;
 import java.awt.Color;
 import java.awt.Container;
 import java.awt.event.WindowEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.sql.Savepoint;
+import javax.imageio.ImageIO;
 import javax.swing.JFrame;
+import javax.swing.JMenuBar;
 import javax.swing.JScrollPane;
 import javax.swing.SpringLayout;
 import javax.swing.UIManager;
@@ -26,6 +32,8 @@ public class WhiteboardGUI extends JFrame implements Runnable
     private static final WhiteboardGUI INSTANCE = new WhiteboardGUI();
     /** The layout manager for the components. */
     private final SpringLayout layout;
+    /** The menu bar for this {@link WhiteboardGUI}. */
+    private final WhiteboardMenu menu;
     /** A {@link WhiteboardCanvas} to allow the user to draw. */
     private final WhiteboardCanvas canvas;
     /** A set of {@link WhiteboardControls} for the {@link WhiteboardCanvas}. */
@@ -73,9 +81,12 @@ public class WhiteboardGUI extends JFrame implements Runnable
         Container contentPane = this.getContentPane();
         contentPane.setLayout(layout);
         
+        this.menu = new WhiteboardMenu(this);
+        this.setJMenuBar(this.menu);
+        
         this.canvas = new WhiteboardCanvas(800, 800);
         this.controls = new WhiteboardControls(canvas);
-        this.controls.setupLayout();
+        
         this.scroller = new JScrollPane(canvas);
         this.scroller.setBackground(Color.LIGHT_GRAY);
         
@@ -124,6 +135,30 @@ public class WhiteboardGUI extends JFrame implements Runnable
     public static WhiteboardGUI getInstance()
     {
         return WhiteboardGUI.INSTANCE;
+    }
+    
+    public boolean saveCanvas(File file, WhiteboardMenu.SaveType type)
+    {
+        switch (type) {
+            case BMP:
+            case PNG:
+            case GIF:
+            case JPEG:
+                break;
+            case UNSUPPORTED:
+            default:
+                return false;
+        }
+            
+        BufferedImage img = canvas.getImage();
+        try {
+            ImageIO.write(img, type.name().toLowerCase(), file);
+        } catch (IOException ex) {
+            System.err.println(ex.getMessage());
+            return false;
+        }
+        
+        return true;
     }
 
     /**

@@ -22,8 +22,8 @@ import javax.swing.JPanel;
  * based on the {@link BufferedImage} class, allowing it to be saved if needed.
  * 
  * @author 6266215
- * @version 1.1
- * @since 2015-03-11
+ * @version 1.2
+ * @since 2015-03-12
  */
 public class WhiteboardCanvas extends JPanel
 {
@@ -50,6 +50,15 @@ public class WhiteboardCanvas extends JPanel
         g.fillRect(0, 0, width, height);
         this.setFocusable(true);
     }
+    
+    /**
+     * Gets the {@link BufferedImage} that this {@link WhiteboardCanvas} is 
+     * drawing to.
+     * 
+     * @return The canvas image as a {@link BufferedImage}.
+     * @since 1.2
+     */
+    public BufferedImage getImage() { return this.canvas; }
     
     /**
      * Draws a line on the canvas between the specified points with the provided

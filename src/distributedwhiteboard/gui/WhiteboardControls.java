@@ -37,7 +37,7 @@ import say.swing.JFontChooser;
  * @version 1.1
  * @since 2015-03-11
  */
-public class WhiteboardControls extends JPanel 
+public final class WhiteboardControls extends JPanel 
         implements ActionListener,  // Listen for button clicks.
                 ItemListener,       // Listen for checkbox/ combobox changes.
                 KeyListener,        // Listen for keyboard events.
@@ -147,6 +147,8 @@ public class WhiteboardControls extends JPanel
         this.borderShape = false;
         this.borderWeight = 1;
         this.borderColour = Color.WHITE;
+        
+        setupLayout();
     }
     
     /**
@@ -154,7 +156,7 @@ public class WhiteboardControls extends JPanel
      * 
      * @since 1.0
      */
-    public void setupLayout()
+    private void setupLayout()
     {
         colourPicker.addActionListener(this);
         modeSelect.addItemListener(this);
@@ -204,7 +206,7 @@ public class WhiteboardControls extends JPanel
      * 
      * @since 1.0
      */
-    public void enableFontControls()
+    private void enableFontControls()
     {
         boldButton.setSelected(font.isBold());
         italicButton.setSelected(font.isItalic());
@@ -219,7 +221,7 @@ public class WhiteboardControls extends JPanel
      * 
      * @since 1.0
      */
-    public void disableFontControls()
+    private void disableFontControls()
     {
         boldButton.setSelected(false);
         italicButton.setSelected(false);
@@ -234,7 +236,7 @@ public class WhiteboardControls extends JPanel
      * 
      * @since 1.0
      */
-    public void enableDrawControls()
+    private void enableDrawControls()
     {
         Component[] drawControls = drawTools.getComponents();
         for (Component com : drawControls) {
@@ -251,7 +253,7 @@ public class WhiteboardControls extends JPanel
      * 
      * @since 1.0
      */
-    public void disableDrawControls()
+    private void disableDrawControls()
     {
         Component[] drawControls = drawTools.getComponents();
         for (Component com : drawControls) {
@@ -268,7 +270,7 @@ public class WhiteboardControls extends JPanel
      * currently stored, this point will be stored.
      * @since 1.0
      */
-    public void drawLine(Point nextPoint)
+    private void drawLine(Point nextPoint)
     {
         if (firstPoint == null) // Store the first point passed if none is held.
             firstPoint = nextPoint;
@@ -289,7 +291,7 @@ public class WhiteboardControls extends JPanel
      * the rectangle to draw.
      * @since 1.1
      */
-    public void drawRect(Point point)
+    private void drawRect(Point point)
     {
         if (firstPoint == null) {
             firstPoint = point;
@@ -321,7 +323,7 @@ public class WhiteboardControls extends JPanel
      * @param s The {@link String} to draw to the canvas.
      * @since 1.0
      */
-    public void drawText(String s)
+    private void drawText(String s)
     {
         if (lastPoint != null)
             lastPoint = canvas.drawText(s, lastPoint, font, colour);
