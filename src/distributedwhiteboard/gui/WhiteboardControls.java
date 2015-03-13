@@ -1,6 +1,8 @@
 package distributedwhiteboard.gui;
 
+import distributedwhiteboard.Client;
 import distributedwhiteboard.DrawMode;
+import distributedwhiteboard.WhiteboardMessage;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -279,7 +281,9 @@ public final class WhiteboardControls extends JPanel
             return;
         }
         
+        WhiteboardMessage msg = new WhiteboardMessage(mode, lastPoint, nextPoint, colour, lineWeight);
         lastPoint = canvas.drawLine(lastPoint, nextPoint, colour, lineWeight);
+        Client.getInstance().sendMessage(msg);
     }
     
     /**
@@ -309,10 +313,15 @@ public final class WhiteboardControls extends JPanel
             } else if (rectSize.width < 0 && rectSize.height < 0) { 
                 firstPoint = new Point(point.x, point.y);
             }
+            
+            WhiteboardMessage msg = new WhiteboardMessage(mode, firstPoint, 
+                    new Point(rectSize.width, rectSize.height), colour, 
+                    borderWeight, fillShape, borderShape, borderColour);
             // Draw the rectangle.
             lastPoint = canvas.drawRectangle(firstPoint, rectSize, colour, 
                     fillShape, borderShape, borderWeight, borderColour);
             firstPoint = null; // Reset the origin point.
+            Client.getInstance().sendMessage(msg);
         }
     }
     
@@ -320,13 +329,16 @@ public final class WhiteboardControls extends JPanel
      * Draw a {@link String} to the referenced {@link WhiteboardCanvas}. The 
      * drawing point for this text is set by clicking the canvas before typing.
      * 
-     * @param s The {@link String} to draw to the canvas.
+     * @param c The character to draw to the canvas.
      * @since 1.0
      */
-    private void drawText(String s)
+    private void drawText(char c)
     {
-        if (lastPoint != null)
-            lastPoint = canvas.drawText(s, lastPoint, font, colour);
+        if (lastPoint != null) {
+            WhiteboardMessage msg = new WhiteboardMessage(mode, lastPoint, colour, font, c);
+            lastPoint = canvas.drawText(c, lastPoint, font, colour);
+            Client.getInstance().sendMessage(msg);
+        }
     }
         
     /**
@@ -533,8 +545,7 @@ public final class WhiteboardControls extends JPanel
     public void keyTyped(KeyEvent e)
     {
         if (mode.equals(DrawMode.TEXT)) {
-            String str = Character.toString(e.getKeyChar());
-            drawText(str);
+            drawText(e.getKeyChar());
         }
     }
 

@@ -1,15 +1,14 @@
 package distributedwhiteboard.gui;
 
+import distributedwhiteboard.Server;
 import java.awt.Color;
 import java.awt.Container;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.sql.Savepoint;
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
-import javax.swing.JMenuBar;
 import javax.swing.JScrollPane;
 import javax.swing.SpringLayout;
 import javax.swing.UIManager;
@@ -21,8 +20,8 @@ import javax.swing.UnsupportedLookAndFeelException;
  * other networked users.
  * 
  * @author 6266215
- * @version 1.0
- * @since 2015-03-10
+ * @version 1.1
+ * @since 2015-03-12
  */
 public class WhiteboardGUI extends JFrame implements Runnable 
 {
@@ -41,9 +40,7 @@ public class WhiteboardGUI extends JFrame implements Runnable
     /** A {@link JScrollPane} to hold the canvas in case it's too large. */
     private final JScrollPane scroller;
     /** Repaints the GUI constantly in the background. */
-    private final Thread repainter;
-    /** Allows the repainter thread to run. */
-    private boolean repaint;
+    private Thread repainter;
     
     /**
      * Creates a new instance of the {@link WhiteboardGUI}, setting up all the 
@@ -117,12 +114,7 @@ public class WhiteboardGUI extends JFrame implements Runnable
         this.setResizable(true);
         this.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         this.setVisible(true);
-        
-        // Repaint the window constantly due to a weird rendering bug on Win.
-        this.repainter = new Thread(this);
-        this.repainter.setName("Whiteboard Repainter");
-        this.repainter.setPriority(Thread.MIN_PRIORITY);
-        this.repainter.start();
+        startWindow();
     }
     
     /**
@@ -137,6 +129,31 @@ public class WhiteboardGUI extends JFrame implements Runnable
         return WhiteboardGUI.INSTANCE;
     }
     
+    /**
+     * Starts the repainting thread and completes any extra initialisation that 
+     * cannot be done in the constructor.
+     * 
+     * @since 1.1
+     */
+    private void startWindow()
+    {
+        // Repaint the window constantly due to a weird rendering bug on Win.
+        repainter = new Thread(this);
+        repainter.setName("Whiteboard Repainter");
+        repainter.setPriority(Thread.MIN_PRIORITY);
+        repainter.start();
+    }
+    
+    /**
+     * Saves the current {@link WhiteboardCanvas} to a file of the specified 
+     * {@link WhiteboardMenu.SaveType}.
+     * 
+     * @param file A {@link File} to write to.
+     * @param type The {@link WhiteboardMenu.SaveType} to specify the format of 
+     * the saved canvas.
+     * @return Returns true if the canvas was saved, false otherwise.
+     * @since 1.1
+     */
     public boolean saveCanvas(File file, WhiteboardMenu.SaveType type)
     {
         switch (type) {
@@ -160,6 +177,15 @@ public class WhiteboardGUI extends JFrame implements Runnable
         
         return true;
     }
+    
+    /**
+     * Gets the current {@link WhiteboardCanvas} this {@link WhiteboardGUI} is 
+     * drawing to.
+     * 
+     * @return A {@link WhiteboardCanvas} instance.
+     * @since 1.1
+     */
+    public WhiteboardCanvas getCanvas() { return this.canvas; }
 
     /**
      * Stop the repainting thread gracefully when the window sends the 
@@ -173,8 +199,11 @@ public class WhiteboardGUI extends JFrame implements Runnable
     {
         super.processWindowEvent(e);
         if (e.getID() == WindowEvent.WINDOW_CLOSING) {
-            WhiteboardGUI.this.repaint = false;
+            Server server = Server.getInstance();
+            if (server != null)
+                server.stopServer();
             try {
+                WhiteboardGUI.this.repainter.interrupt();
                 WhiteboardGUI.this.repainter.join();
                 System.out.println("Repainter stopped.");
             } catch (InterruptedException ex) {
@@ -193,13 +222,12 @@ public class WhiteboardGUI extends JFrame implements Runnable
     @Override
     public void run()
     {
-        this.repaint = true;
-        while (repaint) {
+        while (true) {
             repaint();
             try {
-                Thread.sleep(10);
-            } catch (InterruptedException ex) {
-                
+                Thread.sleep(1);
+            } catch (InterruptedException ex) { 
+                break;
             }
         }
     }

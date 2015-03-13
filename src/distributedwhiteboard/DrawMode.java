@@ -14,27 +14,49 @@ public enum DrawMode
      * Draws straight lines between two points.
      * @since 1.0
      */
-    LINE,
+    LINE('l'),
     /** 
      * Draws a {@link String} at a specified point.
      * @since 1.0
      */
-    TEXT,
+    TEXT('t'),
     /** 
      * Draws straight lines between points, but joins the last and first.
      * @since 1.1
      */
-    POLYGON,
+    POLYGON('p'),
     /** 
      * Allows the user to click and drag a arbritrary shape.
      * @since 1.1
      */
-    FREEFORM_LINE,
+    FREEFORM_LINE('f'),
     /** 
      * Draws a rectangle between two points.
      * @since 1.1
      */
-    RECTANGLE;
+    RECTANGLE('r');
+    
+    public final char value;
+    private DrawMode(char val) { this.value = val; }
+    
+    public static DrawMode parseChar(char c)
+    {
+        switch(c) {
+            case 'l':
+                return LINE;
+            case 't':
+                return TEXT;
+            case 'p':
+                return POLYGON;
+            case 'f':
+                return FREEFORM_LINE;
+            case 'r':
+                return RECTANGLE;
+            default:
+                System.out.printf("Unknown DrawType '%c'\n", c);
+                return null;
+        }
+    }
     
     /**
      * Format the names of each enum entry to make them nicer for users to read.

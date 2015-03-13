@@ -1,6 +1,11 @@
 package distributedwhiteboard;
 
+import distributedwhiteboard.gui.WhiteboardCanvas;
+import distributedwhiteboard.gui.WhiteboardGUI;
+import java.awt.Color;
+import java.awt.Dimension;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -20,7 +25,7 @@ public class Server implements Runnable
     /** The singleton instance of {@link Server}. */
     private static Server INSTANCE;
     /** The maximum size of a {@link DatagramPacket} buffer. */
-    private static final int BUFFER_SIZE = 20;
+    private static final int BUFFER_SIZE = new WhiteboardMessage().encode().length;
     /** A UDP {@link DatagramSocket} to listen for connections on. */
     private DatagramSocket socket;
     /** A port number to listen on. */
@@ -128,7 +133,7 @@ public class Server implements Runnable
         try {
             socket = new DatagramSocket(port);
         } catch (SocketException ex) {
-            System.err.printf("Couldn't create DatagramSocket.\n%s\n", 
+            serverError("Couldn't create DatagramSocket.\n%s", 
                     ex.getMessage());
             return false;
         }
@@ -138,11 +143,12 @@ public class Server implements Runnable
         try {
             serverThread.start();
         } catch (IllegalThreadStateException ex) {
-            System.err.println("Server is already running!");
+            serverError("Server is already running!");
             return false;
         }
         
-        System.out.printf("Started server (%s:%d)\n", hostAddress, port);
+        serverMessage("Started server", hostAddress, port);
+        Client.getInstance().setHost(hostAddress, port);
         return true;
     }
     
@@ -166,10 +172,53 @@ public class Server implements Runnable
             socket.close();
             serverThread.join();
         } catch (InterruptedException iEx) {
-            System.err.printf("Server interrupted during shutdown!\n%s\n", 
+            serverError("Server interrupted during shutdown!\n%s", 
                     iEx.getMessage());
         }
-        System.out.printf("Server stopped (%s:%d)\n", hostAddress, port);
+        serverMessage("Server stopped", hostAddress, port);
+    }
+    
+    private void handleMessage(WhiteboardMessage msg)
+    {
+        if (msg == null) return;
+        WhiteboardCanvas canvas = WhiteboardGUI.getInstance().getCanvas();
+        
+        switch (msg.getDrawMode()) {
+            case LINE:
+            case POLYGON:
+            case FREEFORM_LINE:
+                canvas.drawLine(msg.getStartPoint(), msg.getEndPoint(), 
+                        msg.getColour(), msg.getLineWeight());
+                break;
+            case RECTANGLE:
+                Dimension d = new Dimension(msg.getEndPoint().x, msg.getEndPoint().y);
+                canvas.drawRectangle(msg.getStartPoint(), d, msg.getColour(), 
+                        msg.isFilled(), msg.hasBorder(), msg.getBorderWeight(), 
+                        msg.getBorderColour());
+                break;
+            case TEXT:
+                canvas.drawText(msg.getText(), msg.getStartPoint(), 
+                        msg.getFont(), msg.getColour());
+                break;
+            default:
+                serverError("Unknown drawmode.");
+        }
+    }
+    
+    private void serverMessage(String fmtString, Object...args)
+    {
+        serverPrint(System.out, fmtString, args);
+    }
+    
+    private void serverError(String fmtString, Object...args)
+    {
+        serverPrint(System.err, fmtString, args);
+    }
+    
+    private void serverPrint(PrintStream strm, String fmtString, Object...args)
+    {
+        fmtString = String.format(fmtString, args);
+        strm.printf("(%s:%d) - %s\n", this.hostAddress, this.port, fmtString);
     }
     
     /**
@@ -186,13 +235,15 @@ public class Server implements Runnable
         DatagramPacket packet = new DatagramPacket(buffer, BUFFER_SIZE);
         
         while(runServer) {
-            System.out.println("Listening...");
+            serverMessage("Listening...");
             try {
                 socket.receive(packet);
+                serverMessage("Recieved packet");
+                handleMessage(WhiteboardMessage.decodeMessage(buffer));
             } catch (IOException ioEx) {
                 // Only print errors while the server is running.
                 if (runServer) {
-                    System.err.println(ioEx.getMessage());
+                    serverError(ioEx.getMessage());
                 }
             }
         }

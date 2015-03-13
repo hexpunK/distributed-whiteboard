@@ -1,5 +1,6 @@
 package distributedwhiteboard.gui;
 
+import distributedwhiteboard.Client;
 import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -25,6 +26,8 @@ import javax.swing.filechooser.FileNameExtensionFilter;
  */
 public final class WhiteboardMenu extends JMenuBar implements ActionListener
 {
+    /** Serialisation ID. */
+    private static final long serialVersionUID = -4631267601508940759L;
     /** The owning component. */
     private final Component parent;
     // The various menus.
@@ -54,7 +57,7 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         for (SaveType type : SaveType.values()) {
             if (type == SaveType.UNSUPPORTED) continue;
             
-            JMenuItem saveItem = new JMenuItem(type.toString());
+            JMenuItem saveItem = new JMenuItem(type.name());
             saveItem.setMnemonic(type.getMnemonic());
             saveItems.add(saveItem);
         }
@@ -127,13 +130,13 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         String action = ae.getActionCommand();
         SaveType type;
         
-        if (action.equals(SaveType.BMP.toString()))
+        if (action.equals(SaveType.BMP.name()))
             type = SaveType.BMP;
-        else if (action.equals(SaveType.GIF.toString()))
+        else if (action.equals(SaveType.GIF.name()))
             type = SaveType.GIF;
-        else if (action.equals(SaveType.JPEG.toString()))
+        else if (action.equals(SaveType.JPEG.name()))
             type = SaveType.JPEG;
-        else if (action.equals(SaveType.PNG.toString()))
+        else if (action.equals(SaveType.PNG.name()))
             type = SaveType.PNG;
         else
             type = SaveType.UNSUPPORTED;

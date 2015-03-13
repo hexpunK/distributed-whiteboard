@@ -1,5 +1,6 @@
 package distributedwhiteboard.gui;
 
+import distributedwhiteboard.WhiteboardMessage;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -14,8 +15,10 @@ import java.awt.RenderingHints.Key;
 import java.awt.Shape;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.swing.JPanel;
+import javax.swing.SwingWorker;
 
 /**
  * Provides a canvas for the user or application to draw to. This canvas is 
@@ -94,7 +97,7 @@ public class WhiteboardCanvas extends JPanel
      * Draws text to the canvas with the specified {@link Font} and 
      * {@link Color}.
      * 
-     * @param text The text to display as a {@link String}.
+     * @param c The text to display as a character.
      * @param point The point to draw the text at as an {@link Point}.
      * @param font The font settings (family, size, style) as a {@link Font}. If
      *  null is provided, the text will use 'Serif' at 12pt.
@@ -103,7 +106,7 @@ public class WhiteboardCanvas extends JPanel
      * @return Returns the point that this text stopped drawing at.
      * @since 1.0
      */
-    public Point drawText(String text, Point point, Font font, Color colour)
+    public Point drawText(char c, Point point, Font font, Color colour)
     {
         Graphics2D g = (Graphics2D)canvas.getGraphics();
         Font f = new Font("Serif", Font.PLAIN, 12);
@@ -113,6 +116,7 @@ public class WhiteboardCanvas extends JPanel
         if (font != null)
             f = font;
         
+        String text = String.valueOf(c);
         g.setColor(col);
         g.setFont(f);
         g.drawString(text, point.x, point.y);
@@ -242,5 +246,20 @@ public class WhiteboardCanvas extends JPanel
         RenderingHints hints = new RenderingHints(hintMap);
         graphics.setRenderingHints(hints);
         graphics.drawImage(canvas, 0, 0, null);
+    }
+    
+    public static final class CanvasUpdater extends SwingWorker<Void, WhiteboardMessage>
+    {
+        @Override
+        protected Void doInBackground() throws Exception
+        {
+            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        }
+
+        @Override
+        protected void process(List<WhiteboardMessage> chunks)
+        {
+            
+        }
     }
 }
