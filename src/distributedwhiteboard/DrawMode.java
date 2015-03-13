@@ -5,8 +5,8 @@ package distributedwhiteboard;
  * supports.
  * 
  * @author 6266215
- * @version 1.1
- * @since 2015-03-11
+ * @version 1.2
+ * @since 2015-03-12
  */
 public enum DrawMode
 {
@@ -39,6 +39,15 @@ public enum DrawMode
     public final char value;
     private DrawMode(char val) { this.value = val; }
     
+    /**
+     * Parses a provided character and provides the correct {@link DrawMode} 
+     * enumeration value for that character.
+     * 
+     * @param c The character to parse.
+     * @return A {@link DrawMode} value if a matching one is found, null 
+     * otherwise.
+     * @since 1.2
+     */
     public static DrawMode parseChar(char c)
     {
         switch(c) {
@@ -64,6 +73,7 @@ public enum DrawMode
      * character of each word capitalised.
      * 
      * @return Returns the formatted name of an enum value as a String.
+     * @since 1.0
      */
     @Override
     public String toString()

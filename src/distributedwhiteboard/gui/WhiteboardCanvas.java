@@ -1,6 +1,5 @@
 package distributedwhiteboard.gui;
 
-import distributedwhiteboard.WhiteboardMessage;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -15,10 +14,8 @@ import java.awt.RenderingHints.Key;
 import java.awt.Shape;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import javax.swing.JPanel;
-import javax.swing.SwingWorker;
 
 /**
  * Provides a canvas for the user or application to draw to. This canvas is 
@@ -246,20 +243,5 @@ public class WhiteboardCanvas extends JPanel
         RenderingHints hints = new RenderingHints(hintMap);
         graphics.setRenderingHints(hints);
         graphics.drawImage(canvas, 0, 0, null);
-    }
-    
-    public static final class CanvasUpdater extends SwingWorker<Void, WhiteboardMessage>
-    {
-        @Override
-        protected Void doInBackground() throws Exception
-        {
-            throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-        }
-
-        @Override
-        protected void process(List<WhiteboardMessage> chunks)
-        {
-            
-        }
     }
 }

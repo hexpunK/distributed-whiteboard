@@ -1,7 +1,6 @@
 package distributedwhiteboard;
 
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Point;
 import java.io.Serializable;
@@ -17,43 +16,88 @@ import java.io.Serializable;
  */
 public class WhiteboardMessage implements Serializable
 {
+    /** Serialisation ID. */
     private static final long serialVersionUID = 5459762541371665893L;
-    
+    /** The size of a encoded {@link Point} object. */
     private static final byte POINT_SIZE = 8;
+    /** The size of a encoded {@link Color} object. */
     private static final byte COLOUR_SIZE = 6;
+    /** The maximum size a {@link Font} name can be. */
     private static final byte FONT_NAME_SIZE = 20;
-    private static final byte FONT_STYLE_SIZE = 1;
-    private static final byte FONT_SIZE = FONT_NAME_SIZE+FONT_STYLE_SIZE+2;
+    /** The size of a {@link Font} style once encoded. */
+    private static final byte FONT_STY_SZ = 1;
+    /** The total size of an encoded {@link Font} object. */
+    private static final byte FONT_SIZE = FONT_NAME_SIZE+FONT_STY_SZ+2;
     
+    /** The byte offset for the first {@link Point} object. */
     private static final byte POINT_ONE_OFFSET = 1;
+    /** The byte offset for the second {@link Point}, this is optional. */
     private static final byte POINT_TWO_OFFSET = POINT_ONE_OFFSET+POINT_SIZE;
+    /** The offset for the {@link Color} object used by shapes. */
     private static final byte COLOUR_OFFSET = POINT_TWO_OFFSET+POINT_SIZE;
+    /** The byte offset of the line weight value. */
     private static final byte WEIGHT_OFFSET = COLOUR_OFFSET+COLOUR_SIZE;
     
+    /** The byte offset of the {@link Color} object used by text. */
     private static final byte FONT_COL_OFFSET = POINT_TWO_OFFSET;
+    /** The byte offset of the text character position. */
     private static final byte TEXT_OFFSET = FONT_COL_OFFSET+COLOUR_SIZE;
+    /** The byte offset for the {@link Font} object. */
     private static final byte FONT_OFFSET = TEXT_OFFSET+1;
+    /** The index in a string where the {@link Font} style begins.*/
     private static final byte FONT_STYLE_OFFSET = FONT_NAME_SIZE;
-    private static final byte FONT_SIZE_OFFSET = FONT_STYLE_OFFSET+FONT_STYLE_SIZE;
+    /** The index in a string where the {@link Font} size begins.*/
+    private static final byte FONT_SIZE_OFFSET = FONT_STYLE_OFFSET+FONT_STY_SZ;
     
+    /** The byte offset for the shape fill boolean. */
     private static final byte FILL_OFFSET = COLOUR_OFFSET+COLOUR_SIZE;
+    /** The byte offset for the shape border boolean. */
     private static final byte BORDER_OFFSET = FILL_OFFSET+1;
+    /** The byte offset for the {@link Color} object used by borders. */
     private static final byte BORDER_COL_OFFSET = BORDER_OFFSET+1;
+    /** The byte offset for the border weight value. */
     private static final byte BORDER_W_OFFSET = BORDER_COL_OFFSET+COLOUR_SIZE;
     
-    //private final MessageType type;
-    private final DrawMode mode;
-    private final Point startPoint;
-    private final Point endPoint;
-    private final Color drawColour;
-    private final int lineWeight;
-    private final boolean fillShape;
-    private final boolean hasBorder;
-    private final int borderWeight;
-    private final Color borderCol;
-    private final Font font;
-    private final char textChar;
+    /** The {@link MessageType} of this {@link WhiteboardMessage}. */
+    //public final MessageType type;
+    /** The {@link DrawMode} for this message if it's a drawing message. */
+    public final DrawMode mode;
+    /** The {@link Point} to start drawing the object from. */
+    public final Point startPoint;
+    /** The {@link Point} to stop drawing the object at (optional). */
+    public final Point endPoint;
+    /** The {@link Color} to draw the object with. */
+    public final Color drawColour;
+    /** 
+     * The thickness of any {@link DrawMode#LINE}, 
+     * {@link DrawMode#FREEFORM_LINE}, or {@link DrawMode#POLYGON} objects.
+     */
+    public final int lineWeight;
+    /** Should the shape be filled or just be an outline? */
+    public final boolean fillShape;
+    /** Does this shape have a border? */
+    public final boolean hasBorder;
+    /**
+     * The thickness of a border if {@link WhiteboardMessage#hasBorder} is set
+     * to true.
+     */
+    public final int borderWeight;
+    /**
+     * The {@link Color} of the border if {@link WhiteboardMessage#hasBorder} is
+     *  set to true.
+     */
+    public final Color borderCol;
+    /** The {@link Font} to use when drawing {@link DrawMode#TEXT}. */
+    public final Font font;
+    /** The character to draw. */
+    public final char textChar;
     
+    /**
+     * Creates an empty {@link DrawMode#TEXT} message, this is mostly used to 
+     * get the largest possible message for setting the server byte buffer size.
+     * 
+     * @since 1.0
+     */
     public WhiteboardMessage()
     {
         this.mode = DrawMode.TEXT;
@@ -69,6 +113,17 @@ public class WhiteboardMessage implements Serializable
         this.textChar = '\0';
     }
     
+    /**
+     * Creates a new {@link WhiteboardMessage} that contains a message to draw 
+     * between two points.
+     * 
+     * @param mode The {@link DrawMode} to send.
+     * @param p1 The starting {@link Point} for this drawing.
+     * @param p2 The ending {@link Point} for this drawing.
+     * @param drawCol The {@link Color} to draw with.
+     * @param weight The thickness of the lines used when drawing.
+     * @since 1.0
+     */
     public WhiteboardMessage(DrawMode mode, Point p1, 
             Point p2, Color drawCol, int weight)
     {
@@ -85,6 +140,21 @@ public class WhiteboardMessage implements Serializable
         this.textChar = '\0';
     }
     
+    /**
+     * Creates a new {@link WhiteboardMessage} that contains a message to draw 
+     * between two points with a border and/or a fill.
+     * 
+     * @param mode The {@link DrawMode} to send.
+     * @param p1 The starting {@link Point} for this drawing.
+     * @param p2 The ending {@link Point} for this drawing.
+     * @param drawCol The {@link Color} to draw with.
+     * @param weight The thickness of the lines used when drawing a border.
+     * @param fill Set this to true to fill the centre of this drawing with the 
+     * drawing colour.
+     * @param border Set this to true to draw a border around the shape.
+     * @param bCol The {@link Color} to use when drawing the border.
+     * @since 1.0
+     */
     public WhiteboardMessage(DrawMode mode, Point p1,  Point p2, Color drawCol, 
             int weight, boolean fill, boolean border, Color bCol)
     {
@@ -101,6 +171,16 @@ public class WhiteboardMessage implements Serializable
         this.textChar = '\0';
     }
     
+    /**
+     * Creates a new {@link WhiteboardMessage} that contains a message to draw 
+     * the specified character in the provided {@link Font}.
+     * 
+     * @param mode
+     * @param p1
+     * @param drawCol
+     * @param f
+     * @param text 
+     */
     public WhiteboardMessage(DrawMode mode, Point p1, Color drawCol, Font f, 
             char text)
     {
@@ -116,37 +196,33 @@ public class WhiteboardMessage implements Serializable
         this.font = f;
         this.textChar = text;
     }
-    
-    public DrawMode getDrawMode() { return this.mode; }
-    
-    public Point getStartPoint() { return this.startPoint; }
-    
-    public Point getEndPoint() { return this.endPoint; }
-    
-    public Color getColour() { return this.drawColour; }
-    
-    public int getLineWeight() { return this.lineWeight; }
-    
-    public boolean isFilled() { return this.fillShape; }
-    
-    public boolean hasBorder() { return this.hasBorder; }
-    
-    public Color getBorderColour() { return this.borderCol; }
-    
-    public int getBorderWeight() { return this.borderWeight; }
-    
-    public Font getFont() { return this.font; }
-    
-    public char getText() { return this.textChar; }
-    
+        
+    /**
+     * Encodes this {@link WhiteboardMessage} into a byte array so it can be 
+     * sent across networks. The array is generated from the {@link String} 
+     * representation of this message.
+     * 
+     * @return Returns a byte array representation of this message.
+     * @since 1.0
+     */
     public byte[] encode() { return this.toString().getBytes(); }
     
+    /**
+     * Converts a provided byte array into a {@link WhiteboardMessage} if it 
+     * contains all the required information.
+     * 
+     * @param message The byte array to convert to a new message.
+     * @return Returns a new {@link WhiteboardMessage} if the byte array is 
+     * properly formed, null otherwise.
+     * @since 1.0
+     */
     public static WhiteboardMessage decodeMessage(byte[] message)
     {
         String messageStr = new String(message).trim();
         DrawMode m = DrawMode.parseChar(messageStr.charAt(0));
         
-        Point p1 = stringToPoint(messageStr.substring(POINT_ONE_OFFSET, POINT_TWO_OFFSET));
+        Point p1 = stringToPoint(messageStr.substring(POINT_ONE_OFFSET, 
+                POINT_TWO_OFFSET));
         Point p2;
         Color col;
         int weight;
@@ -155,46 +231,77 @@ public class WhiteboardMessage implements Serializable
             case FREEFORM_LINE:
             case LINE:
             case POLYGON:
-                p2 = stringToPoint(messageStr.substring(POINT_TWO_OFFSET, COLOUR_OFFSET));
-                col = stringToColor(messageStr.substring(COLOUR_OFFSET, WEIGHT_OFFSET));
+                p2 = stringToPoint(messageStr.substring(POINT_TWO_OFFSET, 
+                        COLOUR_OFFSET));
+                col = stringToColor(messageStr.substring(COLOUR_OFFSET, 
+                        WEIGHT_OFFSET));
                 weight = Integer.valueOf(messageStr.substring(WEIGHT_OFFSET));
                 
-                if (m == null || p1 == null || p2 == null || col == null || weight < 1)
+                if (m == null || p1 == null || p2 == null || col == null 
+                        || weight < 1)
                     return null;
+                
                 return new WhiteboardMessage(m, p1, p2, col, weight);
             case RECTANGLE:
-                p2 = stringToPoint(messageStr.substring(POINT_TWO_OFFSET, COLOUR_OFFSET));
-                col = stringToColor(messageStr.substring(COLOUR_OFFSET, FILL_OFFSET));
+                p2 = stringToPoint(messageStr.substring(POINT_TWO_OFFSET, 
+                        COLOUR_OFFSET));
+                col = stringToColor(messageStr.substring(COLOUR_OFFSET, 
+                        FILL_OFFSET));
                 
                 String bVal = messageStr.substring(FILL_OFFSET, BORDER_OFFSET);
                 boolean fill = bVal.equals("t");
                 bVal = messageStr.substring(BORDER_OFFSET, BORDER_COL_OFFSET);
                 boolean border = bVal.equals("t");
                 
-                Color borderCol = stringToColor(messageStr.substring(BORDER_COL_OFFSET, BORDER_W_OFFSET));
+                Color borderCol = stringToColor(
+                        messageStr.substring(BORDER_COL_OFFSET, BORDER_W_OFFSET)
+                );
                 weight = Integer.valueOf(messageStr.substring(BORDER_W_OFFSET));
                 
-                if (m == null || p1 == null || p2 == null || col == null || borderCol == null || weight < 1)
+                if (m == null || p1 == null || p2 == null || col == null 
+                        || borderCol == null || weight < 1)
                     return null;
-                return new WhiteboardMessage(m, p1, p2, col, weight, fill, border, borderCol);
+                
+                return new WhiteboardMessage(m, p1, p2, col, weight, fill, 
+                        border, borderCol);
             case TEXT:
-                col = stringToColor(messageStr.substring(FONT_COL_OFFSET, TEXT_OFFSET));
+                col = stringToColor(messageStr.substring(FONT_COL_OFFSET, 
+                        TEXT_OFFSET));
                 char text = messageStr.charAt(TEXT_OFFSET);
                 Font font = stringToFont(messageStr.substring(FONT_OFFSET));
                 
                 if (m == null || p1 == null || font == null)
                     return null;
+                
                 return new WhiteboardMessage(m, p1, col, font, text);
         }
         
         return null;
     }
     
+    /**
+     * Converts a {@link Point} object to a {@link String}. The encoded string
+     *  will have the following format; <pre>xxxxyyyy</pre>. These values can be
+     *  zero padded if they do not fill the entire x or y range.
+     * 
+     * @param p The {@link Point} to encode.
+     * @return Returns a {@link String} containing the points x and y values.
+     * @since 1.0
+     */
     private static String pointToString(Point p)
     {
         return String.format("%04d%04d", p.x, p.y);
     }
     
+    /**
+     * Converts a {@link Color} object to a {@link String}. The encoded string 
+     * will follow a standard hexadecimal format of; <pre>rrggbb</pre>.
+     * 
+     * @param c The {@link Color} to encode.
+     * @return Returns a {@link String} containing the red, green and blue 
+     * values in their two character hexadecimal representation.
+     * @since 1.0
+     */
     private static String colorToString(Color c)
     {
         int r = c.getRed();
@@ -205,6 +312,19 @@ public class WhiteboardMessage implements Serializable
         return s;
     }
     
+    /**
+     * Converts a {@link Font} to a {@link String}. The encoded string will have
+     *  the following format;
+     * <ol>
+     * <li>20 characters containing a font name.</li>
+     * <li>1 character containing an integer for the font style.</li>
+     * <li>2 characters containing an integer for the font size.</li>
+     * </ol>
+     * 
+     * @param f The {@link Font} to encode.
+     * @return Returns a {@link String} containing an encoded {@link Font}.
+     * @since 1.0
+     */
     private static String fontToString(Font f)
     {
         StringBuilder name = new StringBuilder(f.getName());
@@ -212,9 +332,20 @@ public class WhiteboardMessage implements Serializable
         for (int i = 0; i < paddingNeeded; i++)
             name.append(" ");
         
-        return String.format("%s%d%02d", name.toString(), f.getStyle(), f.getSize());
+        return String.format("%s%d%02d", name.toString(), 
+                f.getStyle(), f.getSize());
     }
     
+    /**
+     * Attempts to convert a {@link String} into a {@link Point}. This method 
+     * expects the string to contain an x and y component in the format; <pre>
+     * xxxxyyyy</pre>, if the value is low enough these can be zero padded.
+     * 
+     * @param s The string to convert.
+     * @return Returns a new {@link Point} if the string can be decoded, null 
+     * otherwise.
+     * @since 1.0
+     */
     private static Point stringToPoint(String s)
     {
         if (s.length() != POINT_SIZE) {
@@ -234,14 +365,17 @@ public class WhiteboardMessage implements Serializable
         
         return new Point(point[0], point[1]);
     }
-    
-    private static int hexToInt(String hex)
-    {
-        if (hex.length() != 2) return -1;
         
-        return Integer.parseInt(hex.trim(), 16);
-    }
-    
+    /**
+     * Converts a hexadecimal {@link String} into a new {@link Color} object. 
+     * This method only accepts hexadecimal values in the form of; <pre>
+     * rrggbb</pre>. Any other formats will return null.
+     * 
+     * @param s The string to convert.
+     * @return Returns a new {@link Color} object if the string can be decoded, 
+     * null otherwise.
+     * @since 1.0
+     */
     private static Color stringToColor(String s)
     {
         if (s.length() != COLOUR_SIZE) {
@@ -253,17 +387,33 @@ public class WhiteboardMessage implements Serializable
         String gChars = s.substring(2, 4);
         String bChars = s.substring(4);
         
-        int r = hexToInt(rChars);
-        int g = hexToInt(gChars);
-        int b = hexToInt(bChars);
-        if (r < 0 || g < 0 || b < 0) {
-            System.err.println("A colour component was negative. Invalid.");
+        int r = Integer.parseInt(rChars, 16);
+        int g = Integer.parseInt(gChars, 16);
+        int b = Integer.parseInt(bChars, 16);
+        
+        if ((r < 0 || r > 255) || (g < 0 || g > 255) || (b < 0 || b > 255)) {
+            System.err.println("A colour component was invalid.");
             return null;
         }
         
         return new Color(r, g, b);
     }
     
+    /**
+     * Attempts to convert a {@link String} to a {@link Font}. This expects an 
+     * encoded string that has the following structure;
+     * <ol>
+     * <li>20 characters containing a font name.</li>
+     * <li>1 character containing an integer for the font style.</li>
+     * <li>2 characters containing an integer for the font size.</li>
+     * </ol>
+     * If the String is not in this format, it will fail to create a new font.
+     * 
+     * @param s The string to convert.
+     * @return Returns a new {@link Font} if the string can be decoded, null 
+     * otherwise.
+     * @since 1.0
+     */
     private static Font stringToFont(String s)
     {
         if (s.length() != FONT_SIZE) {
@@ -278,6 +428,14 @@ public class WhiteboardMessage implements Serializable
         return new Font(name, style, size);
     }
 
+    /**
+     * Creates a {@link String} representation of this {@link WhiteboardMessage}
+     *  , the message structure will vary based on the requirements of the 
+     * message.
+     * 
+     * @return Returns a new {@link String}.
+     * @since 1.0
+     */
     @Override
     public String toString()
     {
@@ -312,8 +470,16 @@ public class WhiteboardMessage implements Serializable
         return sb.toString();
     }
     
+    /**
+     * Message types to help the server understand what a {@link 
+     * WhiteboardMessage} is trying to communicate.
+     * 
+     * @version 1.0
+     * @since 1.0
+     */
     public enum MessageType
     {
+        /** This message contains data for a drawing object. */
         DRAW('d');
         
         public final char value;

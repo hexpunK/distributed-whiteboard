@@ -200,6 +200,7 @@ public final class WhiteboardControls extends JPanel
         this.add(toolBox);
         
         disableFontControls();
+        enableDrawControls(mode == DrawMode.RECTANGLE);
         toolLayout.show(toolBox, DRAWING);
     }
     
@@ -236,18 +237,21 @@ public final class WhiteboardControls extends JPanel
     /**
      * Enable the shape editing and drawing tools.
      * 
-     * @since 1.0
+     * @param borderControls Set to true to enable the border controls check 
+     * box. False to disable it.
+     * @since 1.1
      */
-    private void enableDrawControls()
+    private void enableDrawControls(boolean borderControls)
     {
         Component[] drawControls = drawTools.getComponents();
         for (Component com : drawControls) {
             com.setEnabled(true);
         }
-        if (!borderShape) {
-            borderPicker.setEnabled(false);
-            borderWSelect.setEnabled(false);
-        }
+        borderPicker.setEnabled(borderShape);
+        borderWSelect.setEnabled(borderShape);
+        borderWLabel.setEnabled(borderShape);
+        
+        setBorder.setEnabled(borderControls);
     }
     
     /**
@@ -471,7 +475,7 @@ public final class WhiteboardControls extends JPanel
             case POLYGON:
             case FREEFORM_LINE:
             case RECTANGLE:
-                enableDrawControls();
+                enableDrawControls(mode == DrawMode.RECTANGLE);
                 disableFontControls();
                 toolLayout.show(toolBox, DRAWING);
                 break;
@@ -532,6 +536,7 @@ public final class WhiteboardControls extends JPanel
             borderShape = checkBoxAction(e);
             borderWSelect.setEnabled(borderShape);
             borderPicker.setEnabled(borderShape);
+            borderWLabel.setEnabled(borderShape);
         }
     }
 

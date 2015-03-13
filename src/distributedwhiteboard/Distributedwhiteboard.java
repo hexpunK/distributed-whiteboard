@@ -41,18 +41,13 @@ public class Distributedwhiteboard
             }
         }
         
-        // Print the available drawing modes.
-        System.out.println("Drawing Modes:");
-        for (DrawMode mode : DrawMode.values())
-            System.out.println(mode);
-        System.out.println();
-        
         WhiteboardGUI gui = WhiteboardGUI.getInstance();
         if (gui == null) return;
         
         try {
             Server server = Server.getInstance(port);
-            server.startServer();
+            if (server != null)
+                server.startServer();
         } catch (IllegalArgumentException ex) {
             System.err.println(ex.getMessage());
         }

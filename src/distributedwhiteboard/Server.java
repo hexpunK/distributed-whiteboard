@@ -2,7 +2,6 @@ package distributedwhiteboard;
 
 import distributedwhiteboard.gui.WhiteboardCanvas;
 import distributedwhiteboard.gui.WhiteboardGUI;
-import java.awt.Color;
 import java.awt.Dimension;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -17,15 +16,16 @@ import java.net.UnknownHostException;
  * Whiteboard application.
  *
  * @author 6266215
- * @version 1.0
- * @since 2015-03-12
+ * @version 1.1
+ * @since 2015-03-13
  */
 public class Server implements Runnable
 {
     /** The singleton instance of {@link Server}. */
     private static Server INSTANCE;
     /** The maximum size of a {@link DatagramPacket} buffer. */
-    private static final int BUFFER_SIZE = new WhiteboardMessage().encode().length;
+    private static final int BUFFER_SIZE 
+            = new WhiteboardMessage().encode().length;
     /** A UDP {@link DatagramSocket} to listen for connections on. */
     private DatagramSocket socket;
     /** A port number to listen on. */
@@ -178,43 +178,76 @@ public class Server implements Runnable
         serverMessage("Server stopped", hostAddress, port);
     }
     
+    /**
+     * Processes a {@link WhiteboardMessage} and ensures that the action 
+     * described by the message is sent to the right component of this program.
+     * 
+     * @param msg The {@link WhiteboardMessage} received that needs processing.
+     * @since 1.1
+     */
     private void handleMessage(WhiteboardMessage msg)
     {
         if (msg == null) return;
         WhiteboardCanvas canvas = WhiteboardGUI.getInstance().getCanvas();
         
-        switch (msg.getDrawMode()) {
+        switch (msg.mode) {
             case LINE:
             case POLYGON:
             case FREEFORM_LINE:
-                canvas.drawLine(msg.getStartPoint(), msg.getEndPoint(), 
-                        msg.getColour(), msg.getLineWeight());
+                canvas.drawLine(msg.startPoint, msg.endPoint, 
+                        msg.drawColour, msg.lineWeight);
                 break;
             case RECTANGLE:
-                Dimension d = new Dimension(msg.getEndPoint().x, msg.getEndPoint().y);
-                canvas.drawRectangle(msg.getStartPoint(), d, msg.getColour(), 
-                        msg.isFilled(), msg.hasBorder(), msg.getBorderWeight(), 
-                        msg.getBorderColour());
+                Dimension d = new Dimension(msg.endPoint.x, msg.endPoint.y);
+                canvas.drawRectangle(msg.startPoint, d, msg.drawColour, 
+                        msg.fillShape, msg.hasBorder, msg.borderWeight, 
+                        msg.borderCol);
                 break;
             case TEXT:
-                canvas.drawText(msg.getText(), msg.getStartPoint(), 
-                        msg.getFont(), msg.getColour());
+                canvas.drawText(msg.textChar, msg.startPoint, msg.font, 
+                        msg.drawColour);
                 break;
             default:
                 serverError("Unknown drawmode.");
         }
     }
     
+    /**
+     * Prints the specified {@link String} to the {@link System#out} stream.
+     * 
+     * @param fmtString The {@link String} to format and print.
+     * @param args A number of {@link Object}s to use when formatting the string
+     * @since 1.1
+     */
     private void serverMessage(String fmtString, Object...args)
     {
         serverPrint(System.out, fmtString, args);
     }
     
+    /**
+     * Prints the specified {@link String} to the {@link System#err} stream.
+     * 
+     * @param fmtString The {@link String} to format and print.
+     * @param args A number of {@link Object}s to use when formatting the string
+     * @since 1.1
+     */
     private void serverError(String fmtString, Object...args)
     {
         serverPrint(System.err, fmtString, args);
     }
     
+    /**
+     * Prints a specified {@link String} to the specified {@link PrintStream}.
+     * The string can have a number of {@link Object}s supplied to be used as if
+     *  {@link String#format(java.lang.String, java.lang.Object...)} was being 
+     * called. All strings will be prepended to a description of this server to 
+     * make identifying server messages easier.
+     * 
+     * @param strm The {@link PrintStream} to write this string to.
+     * @param fmtString The {@link String} to format and write out.
+     * @param args A number of {@link Object}s to use when formatting the string
+     * @since 1.1
+     */
     private void serverPrint(PrintStream strm, String fmtString, Object...args)
     {
         fmtString = String.format(fmtString, args);
@@ -234,11 +267,10 @@ public class Server implements Runnable
         byte[] buffer = new byte[BUFFER_SIZE];
         DatagramPacket packet = new DatagramPacket(buffer, BUFFER_SIZE);
         
+        serverMessage("Listening for connections...");
         while(runServer) {
-            serverMessage("Listening...");
             try {
                 socket.receive(packet);
-                serverMessage("Recieved packet");
                 handleMessage(WhiteboardMessage.decodeMessage(buffer));
             } catch (IOException ioEx) {
                 // Only print errors while the server is running.
