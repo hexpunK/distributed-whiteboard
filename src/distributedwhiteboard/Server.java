@@ -32,7 +32,7 @@ public class Server implements Runnable
     /** A port number to listen on. */
     private int port;
     /** The IP address of the host this server is running on. */
-    private String hostAddress;
+    private String hostName;
     /** The {@link Thread} to run this server in the background on. */
     private Thread serverThread;
     /** Lets the server continue to execute in the background. */
@@ -52,9 +52,9 @@ public class Server implements Runnable
         this.runServer = false;
         this.port = 55551;
         try {
-            this.hostAddress = InetAddress.getLocalHost().getHostAddress();
+            this.hostName = InetAddress.getLocalHost().getHostAddress();
         } catch (UnknownHostException ex) {
-            this.hostAddress = "UNKNOWN";
+            this.hostName = "UNKNOWN";
         }
     }
     
@@ -80,9 +80,9 @@ public class Server implements Runnable
         this.runServer = false;
         this.port = port;
         try {
-            this.hostAddress = InetAddress.getLocalHost().getHostAddress();
+            this.hostName = InetAddress.getLocalHost().getHostAddress();
         } catch (UnknownHostException ex) {
-            this.hostAddress = "UNKNOWN";
+            this.hostName = "UNKNOWN";
         }
     }
     
@@ -99,11 +99,6 @@ public class Server implements Runnable
             Server.INSTANCE = new Server();
         
         return Server.INSTANCE;
-    }
-    
-    public Pair<String, Integer> getServerDetails()
-    {
-        return new Pair<>(hostAddress, port);
     }
     
     /**
@@ -172,8 +167,8 @@ public class Server implements Runnable
             return false;
         }
         
-        serverMessage("Started server", hostAddress, port);
-        Client.getInstance().setHost(hostAddress, port);
+        serverMessage("Started server", hostName, port);
+        Client.getInstance().setHost(hostName, port);
         return true;
     }
     
@@ -287,7 +282,7 @@ public class Server implements Runnable
     private void serverPrint(PrintStream strm, String fmtString, Object...args)
     {
         fmtString = String.format(fmtString, args);
-        strm.printf("(%s:%d) - %s\n", this.hostAddress, this.port, fmtString);
+        strm.printf("(%s:%d) - %s\n", this.hostName, this.port, fmtString);
     }
     
     /**
@@ -308,6 +303,7 @@ public class Server implements Runnable
             try {
                 socket.receive(packet);
                 MessageType t = NetMessage.getMessageType(buffer);
+                if (t == null) continue;
                 switch (t) {
                     case DISCOVERY:
                         break;
@@ -327,6 +323,6 @@ public class Server implements Runnable
             }
         }
         
-        serverMessage("Server stopped", hostAddress, port);
+        serverMessage("Server stopped", hostName, port);
     }
 }

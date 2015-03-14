@@ -35,8 +35,8 @@ public class Client
     {
         this.isSending = false;
         this.knownHosts = new ArrayList<>();
-        this.knownHosts.add(new Pair("192.168.0.69", 55551));
-        this.knownHosts.add(new Pair("192.168.0.69", 55552));
+        this.knownHosts.add(new Pair("localhost", 55551));
+        this.knownHosts.add(new Pair("localhost", 55552));
     }
     
     /**

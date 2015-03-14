@@ -46,6 +46,6 @@ public abstract class NetMessage
     public static MessageType getMessageType(byte[] buffer)
     {
         String messageStr = new String(buffer);
-        return MessageType.parseChar(messageStr.charAt(1));
+        return MessageType.parseChar(messageStr.charAt(0));
     }
 }

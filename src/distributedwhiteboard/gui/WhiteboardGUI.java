@@ -115,7 +115,7 @@ public class WhiteboardGUI extends JFrame implements Runnable
         this.setResizable(true);
         this.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         this.setVisible(true);
-        startWindow();
+        //startWindow();
     }
     
     /**
@@ -235,12 +235,14 @@ public class WhiteboardGUI extends JFrame implements Runnable
             Server server = Server.getInstance();
             if (server != null)
                 server.stopServer();
-            try {
-                WhiteboardGUI.this.repainter.interrupt();
-                WhiteboardGUI.this.repainter.join();
-                System.out.println("Repainter stopped.");
-            } catch (InterruptedException ex) {
-                System.err.println("Failed to stop repainter gracefully.");
+            if (this.repainter != null) {
+                try {
+                    WhiteboardGUI.this.repainter.interrupt();
+                    WhiteboardGUI.this.repainter.join();
+                    System.out.println("Repainter stopped.");
+                } catch (InterruptedException ex) {
+                    System.err.println("Failed to stop repainter gracefully.");
+                }
             }
             dispose();
         }
