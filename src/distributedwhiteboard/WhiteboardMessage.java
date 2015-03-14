@@ -3,7 +3,9 @@ package distributedwhiteboard;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Point;
+import java.awt.font.TextAttribute;
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  * Contains the details of a message being sent between two distributed 
@@ -18,16 +20,17 @@ public class WhiteboardMessage implements Serializable
 {
     /** Serialisation ID. */
     private static final long serialVersionUID = 5459762541371665893L;
+    // <editor-fold defaultstate="collapsed" desc="Message sizes.">
     /** The size of a encoded {@link Point} object. */
     private static final byte POINT_SIZE = 8;
     /** The size of a encoded {@link Color} object. */
     private static final byte COLOUR_SIZE = 6;
     /** The maximum size a {@link Font} name can be. */
-    private static final byte FONT_NAME_SIZE = 20;
+    private static final byte FONT_NAME_SIZE = 30;
     /** The size of a {@link Font} style once encoded. */
     private static final byte FONT_STY_SZ = 1;
     /** The total size of an encoded {@link Font} object. */
-    private static final byte FONT_SIZE = FONT_NAME_SIZE+FONT_STY_SZ+2;
+    private static final byte FONT_SIZE = FONT_NAME_SIZE+FONT_STY_SZ+3;
     
     /** The byte offset for the first {@link Point} object. */
     private static final byte POINT_ONE_OFFSET = 1;
@@ -46,8 +49,10 @@ public class WhiteboardMessage implements Serializable
     private static final byte FONT_OFFSET = TEXT_OFFSET+1;
     /** The index in a string where the {@link Font} style begins.*/
     private static final byte FONT_STYLE_OFFSET = FONT_NAME_SIZE;
+    /** The index in a string where the {@link Font} underline attribute is. */
+    private static final byte FONT_UNDER_OFFSET = FONT_STYLE_OFFSET+FONT_STY_SZ;
     /** The index in a string where the {@link Font} size begins.*/
-    private static final byte FONT_SIZE_OFFSET = FONT_STYLE_OFFSET+FONT_STY_SZ;
+    private static final byte FONT_SIZE_OFFSET = FONT_UNDER_OFFSET+1;
     
     /** The byte offset for the shape fill boolean. */
     private static final byte FILL_OFFSET = COLOUR_OFFSET+COLOUR_SIZE;
@@ -57,6 +62,7 @@ public class WhiteboardMessage implements Serializable
     private static final byte BORDER_COL_OFFSET = BORDER_OFFSET+1;
     /** The byte offset for the border weight value. */
     private static final byte BORDER_W_OFFSET = BORDER_COL_OFFSET+COLOUR_SIZE;
+    // </editor-fold>
     
     /** The {@link MessageType} of this {@link WhiteboardMessage}. */
     //public final MessageType type;
@@ -235,7 +241,8 @@ public class WhiteboardMessage implements Serializable
                         COLOUR_OFFSET));
                 col = stringToColor(messageStr.substring(COLOUR_OFFSET, 
                         WEIGHT_OFFSET));
-                weight = Integer.valueOf(messageStr.substring(WEIGHT_OFFSET));
+                weight = Integer.valueOf(messageStr.substring(WEIGHT_OFFSET,
+                        WEIGHT_OFFSET+2));
                 
                 if (m == null || p1 == null || p2 == null || col == null 
                         || weight < 1)
@@ -256,7 +263,8 @@ public class WhiteboardMessage implements Serializable
                 Color borderCol = stringToColor(
                         messageStr.substring(BORDER_COL_OFFSET, BORDER_W_OFFSET)
                 );
-                weight = Integer.valueOf(messageStr.substring(BORDER_W_OFFSET));
+                weight = Integer.valueOf(messageStr.substring(BORDER_W_OFFSET, 
+                        BORDER_W_OFFSET+2));
                 
                 if (m == null || p1 == null || p2 == null || col == null 
                         || borderCol == null || weight < 1)
@@ -268,7 +276,8 @@ public class WhiteboardMessage implements Serializable
                 col = stringToColor(messageStr.substring(FONT_COL_OFFSET, 
                         TEXT_OFFSET));
                 char text = messageStr.charAt(TEXT_OFFSET);
-                Font font = stringToFont(messageStr.substring(FONT_OFFSET));
+                Font font = stringToFont(messageStr.substring(FONT_OFFSET,
+                        FONT_OFFSET+FONT_SIZE));
                 
                 if (m == null || p1 == null || font == null)
                     return null;
@@ -332,8 +341,11 @@ public class WhiteboardMessage implements Serializable
         for (int i = 0; i < paddingNeeded; i++)
             name.append(" ");
         
-        return String.format("%s%d%02d", name.toString(), 
-                f.getStyle(), f.getSize());
+        Map attribs = f.getAttributes();
+        char u = (attribs.get(TextAttribute.UNDERLINE) != null) ? 't' : 'f';
+        
+        return String.format("%s%d%c%02d", name.toString(), 
+                f.getStyle(), u, f.getSize());
     }
     
     /**
@@ -405,6 +417,7 @@ public class WhiteboardMessage implements Serializable
      * <ol>
      * <li>20 characters containing a font name.</li>
      * <li>1 character containing an integer for the font style.</li>
+     * <li>1 character containing an boolean for the underline status.</li>
      * <li>2 characters containing an integer for the font size.</li>
      * </ol>
      * If the String is not in this format, it will fail to create a new font.
@@ -422,10 +435,21 @@ public class WhiteboardMessage implements Serializable
         }
         
         String name = s.substring(0, FONT_NAME_SIZE).trim();
-        int style = Integer.valueOf(s.substring(FONT_STYLE_OFFSET, FONT_SIZE_OFFSET));
+        int style = Integer.valueOf(s.substring(FONT_STYLE_OFFSET, 
+                FONT_UNDER_OFFSET));
+        char under = s.charAt(FONT_UNDER_OFFSET);
         int size = Integer.valueOf(s.substring(FONT_SIZE_OFFSET));
         
-        return new Font(name, style, size);
+        Font f = new Font(name, style, size);
+        Map attribs = f.getAttributes();
+        if (under == 't') {
+            attribs.put(TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON);
+        } else {
+            attribs.put(TextAttribute.UNDERLINE, null);
+        }
+        f = f.deriveFont(attribs);
+        
+        return f;
     }
 
     /**

@@ -1,8 +1,6 @@
 package distributedwhiteboard;
 
 import distributedwhiteboard.gui.WhiteboardGUI;
-import java.awt.Color;
-import java.awt.Point;
 import javax.swing.SwingUtilities;
 
 /**
@@ -23,11 +21,15 @@ public class Distributedwhiteboard
     public static void main(String[] args) 
     {
         int port = 55551;
+        String title = "";
+        boolean readingString = false;
+        
         
         for (int i = 0; i < args.length; i++) {
             switch(args[i]) {
                 case "-p":
                 case "--port":
+                    readingString = false;
                     // Allow the port to be specified.
                     try {
                         port = Integer.parseInt(args[i+1]);
@@ -36,18 +38,33 @@ public class Distributedwhiteboard
                         System.err.println("Port value must be a number.");
                     }
                     break;
+                case "--title":
+                    title = args[++i];
+                    readingString = true;
+                    break;
                 default:
-                    System.err.printf("Unknown argument '%s'%n", args[i]);
+                    if (readingString)
+                        title += args[i];
+                    else
+                        System.err.printf("Unknown argument '%s'%n", args[i]);
             }
         }
         
-        WhiteboardGUI gui = WhiteboardGUI.getInstance();
-        if (gui == null) return;
+        final String windTitle = title;
+        SwingUtilities.invokeLater(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                WhiteboardGUI gui = WhiteboardGUI.getInstance();
+                if (gui == null) return;
+                if (!windTitle.isEmpty())
+                    gui.setTitle(windTitle);
+            }
+        });
         
         try {
-            Server server = Server.getInstance(port);
-            if (server != null)
-                server.startServer();
+            Server.getInstance(port);
         } catch (IllegalArgumentException ex) {
             System.err.println(ex.getMessage());
         }

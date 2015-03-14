@@ -8,6 +8,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JScrollPane;
 import javax.swing.SpringLayout;
@@ -127,6 +128,38 @@ public class WhiteboardGUI extends JFrame implements Runnable
     public static WhiteboardGUI getInstance()
     {
         return WhiteboardGUI.INSTANCE;
+    }
+    
+    /**
+     * Creates a new {@link ImageIcon} from the specified path.
+     *
+     * @param path The file path and file name of the image to load.
+     * @return A new {@link ImageIcon} instance.
+     * @since 1.1
+     */
+    public static ImageIcon createIcon(String path)
+    {
+        return WhiteboardGUI.createIcon(path, "");
+    }
+    
+    /**
+     * Creates a new {@link ImageIcon} from the specified path and sets the
+     * description in the image to the specified String.
+     *
+     * @param path The file path and file name of the image to load.
+     * @param description The description of the image.
+     * @return A new {@link ImageIcon} instance.
+     * @since 1.1
+     */
+    public static ImageIcon createIcon(String path, String description)
+    {
+        java.net.URL imgURL = WhiteboardGUI.class.getResource(path);
+        if (imgURL != null) {
+            return new ImageIcon(imgURL, description);
+        } else {
+            System.err.println("Couldn't find file: " + path);
+            return null;
+        }
     }
     
     /**

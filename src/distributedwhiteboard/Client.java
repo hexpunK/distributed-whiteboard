@@ -14,8 +14,8 @@ import java.util.ArrayList;
  *  a peer-to-peer network to communicate over.
  * 
  * @author 6266215
- * @version 1.0
- * @since 2015-03-12
+ * @version 1.1
+ * @since 2015-03-13
  */
 public class Client
 {
@@ -25,15 +25,18 @@ public class Client
     private final ArrayList<Pair<String, Integer>> knownHosts;
     /** The details of this host, to stop the client from talking to itself. */
     private Pair<String, Integer> thisHost;
+    /** This will be true if this {@link Client} is allowed to send packets. */
+    private boolean isSending;
     
     /**
      * Creates a new {@link Client} with some hard coded nodes to connect to.
      */
     private Client()
     {
-        knownHosts = new ArrayList<>();
-        knownHosts.add(new Pair("192.168.0.69", 55551));
-        knownHosts.add(new Pair("192.168.0.69", 55552));
+        this.isSending = false;
+        this.knownHosts = new ArrayList<>();
+        this.knownHosts.add(new Pair("192.168.0.69", 55551));
+        this.knownHosts.add(new Pair("192.168.0.69", 55552));
     }
     
     /**
@@ -65,6 +68,26 @@ public class Client
     }
     
     /**
+     * Enables or disables this {@link Client}, preventing it from sending 
+     * network messages when disabled.
+     * 
+     * @param enabled Set this to true to allow this Client to send network 
+     * messages, false to prevent this.
+     * @since 1.1
+     */
+    public void setEnabled(boolean enabled) { isSending = enabled; }
+    
+    /**
+     * Checks to see if this {@link Client} is able to send network messages or 
+     * not.
+     * 
+     * @return Returns true if this Client can send messages over the network, 
+     * false otherwise.
+     * @since 1.1
+     */
+    public boolean isEnabled() { return this.isSending; }
+    
+    /**
      * Sends a UDP message out to all known clients. Messages are contained in 
      * the {@link WhiteboardMessage} class, which encodes them into a byte 
      * array to be sent in a {@link DatagramPacket}.
@@ -75,6 +98,8 @@ public class Client
      */
     public void sendMessage(WhiteboardMessage message)
     {
+        if (!isSending) return;
+        
         byte[] bytes = message.toString().getBytes();
         for (Pair<String, Integer> host : knownHosts) {
             if (host.equals(thisHost)) continue; // Don't message yourself.

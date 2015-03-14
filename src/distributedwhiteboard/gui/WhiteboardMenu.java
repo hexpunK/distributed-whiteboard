@@ -1,17 +1,20 @@
 package distributedwhiteboard.gui;
 
 import distributedwhiteboard.Client;
+import distributedwhiteboard.Server;
 import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.util.ArrayList;
+import javax.swing.ImageIcon;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JSeparator;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
@@ -33,11 +36,14 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
     // The various menus.
     private final JMenu fileMenu, helpMenu, saveMenu;
     // File menu items.
-    private final JMenuItem connectItem, disconnectItem, exitItem;
+    private final JMenuItem connectItem, portItem, disconnectItem, exitItem;
     // A listing of all supported image types to save to.
     private final ArrayList<JMenuItem> saveItems;
     // Help menu iems.
     private final JMenuItem aboutItem, helpItem;
+    // Icons for the various menu items.
+    private final ImageIcon closeIcon, helpIcon, imageIcon, connectIcon, 
+            disconnectIcon;
     
     /**
      * Creates a new instance of {@link WhiteboardMenu} with a file and help 
@@ -53,11 +59,18 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         
         this.parent = parent;
         
+        String path = "/distributedwhiteboard/gui/assets/";
+        closeIcon = WhiteboardGUI.createIcon(path+"process-stop.png");
+        helpIcon = WhiteboardGUI.createIcon(path+"help-browser.png");
+        imageIcon = WhiteboardGUI.createIcon(path+"image-x-generic.png");
+        connectIcon = WhiteboardGUI.createIcon(path+"view-refresh.png");
+        disconnectIcon = WhiteboardGUI.createIcon(path+"system-log-out.png");
+        
         saveItems = new ArrayList<>();
         for (SaveType type : SaveType.values()) {
             if (type == SaveType.UNSUPPORTED) continue;
             
-            JMenuItem saveItem = new JMenuItem(type.name());
+            JMenuItem saveItem = new JMenuItem(type.name(), imageIcon);
             saveItem.setMnemonic(type.getMnemonic());
             saveItems.add(saveItem);
         }
@@ -67,18 +80,22 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         for (JMenuItem saveItem : saveItems)
             this.saveMenu.add(saveItem);
         
-        this.connectItem = new JMenuItem("Connect");
+        this.portItem = new JMenuItem("Set Port");
+        this.portItem.setMnemonic('p');
+        
+        this.connectItem = new JMenuItem("Connect", connectIcon);
         this.connectItem.setMnemonic('c');
         
-        this.disconnectItem = new JMenuItem("Disconnect");
+        this.disconnectItem = new JMenuItem("Disconnect", disconnectIcon);
         this.disconnectItem.setMnemonic('d');
         
-        this.exitItem = new JMenuItem("Exit");
+        this.exitItem = new JMenuItem("Exit", closeIcon);
         this.exitItem.setMnemonic('x');
         
         this.fileMenu = new JMenu("File");
         this.fileMenu.setMnemonic('f');
         this.fileMenu.add(this.connectItem);
+        this.fileMenu.add(this.portItem);
         this.fileMenu.add(this.disconnectItem);
         this.fileMenu.add(new JSeparator());
         this.fileMenu.add(this.saveMenu);
@@ -88,7 +105,7 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         this.aboutItem = new JMenuItem("About");
         this.aboutItem.setMnemonic('a');
         
-        this.helpItem = new JMenuItem("Guide");
+        this.helpItem = new JMenuItem("Guide", helpIcon);
         this.helpItem.setMnemonic('g');
         
         this.helpMenu = new JMenu("Help");
@@ -112,6 +129,7 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
     {
         for (JMenuItem saveItem : saveItems)
             saveItem.addActionListener(this);
+        portItem.addActionListener(this);
         connectItem.addActionListener(this);
         disconnectItem.addActionListener(this);
         exitItem.addActionListener(this);
@@ -153,6 +171,8 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         filePicker.showDialog(parent, "Select File");
         
         File file = filePicker.getSelectedFile();
+        if (file == null) return;
+        
         int extensionInd = file.getName().lastIndexOf(".");
         String extension = "";
         if (extensionInd >= 0)
@@ -178,12 +198,25 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
                 && saveItems.contains((JMenuItem)source))
             saveImage(ae);
         else if (source == exitItem)
-            parent.dispatchEvent(new WindowEvent((JFrame)parent, WindowEvent.WINDOW_CLOSING));
-        else if (source == connectItem)
-            throw new UnsupportedOperationException("Connect is not implemented.");
-        else if (source == disconnectItem)
-            throw new UnsupportedOperationException("Disconnect is not implemented.");
-        else if (source == aboutItem)
+            parent.dispatchEvent(new WindowEvent((JFrame)parent, 
+                    WindowEvent.WINDOW_CLOSING));
+        else if (source == portItem) {
+            String portStr = JOptionPane.showInputDialog(parent, 
+                    "Enter port number:", "Select Port", 
+                    JOptionPane.QUESTION_MESSAGE);
+            try {
+                Server.getInstance().setPort(Integer.parseInt(portStr));
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(parent, ex.getMessage(), 
+                        "Invalid Port", JOptionPane.ERROR_MESSAGE);
+            }
+        } else if (source == connectItem) {
+            Server.getInstance().startServer();
+            Client.getInstance().setEnabled(true);
+        } else if (source == disconnectItem) {
+            Server.getInstance().stopServer();
+            Client.getInstance().setEnabled(false);
+        } else if (source == aboutItem)
             throw new UnsupportedOperationException("About is not implemented.");
         else if (source == helpItem)
             throw new UnsupportedOperationException("Help is not implemented.");

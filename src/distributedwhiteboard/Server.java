@@ -3,6 +3,7 @@ package distributedwhiteboard;
 import distributedwhiteboard.gui.WhiteboardCanvas;
 import distributedwhiteboard.gui.WhiteboardGUI;
 import java.awt.Dimension;
+import java.awt.Point;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.DatagramPacket;
@@ -16,7 +17,7 @@ import java.net.UnknownHostException;
  * Whiteboard application.
  *
  * @author 6266215
- * @version 1.1
+ * @version 1.2
  * @since 2015-03-13
  */
 public class Server implements Runnable
@@ -29,7 +30,7 @@ public class Server implements Runnable
     /** A UDP {@link DatagramSocket} to listen for connections on. */
     private DatagramSocket socket;
     /** A port number to listen on. */
-    private final int port;
+    private int port;
     /** The IP address of the host this server is running on. */
     private String hostAddress;
     /** The {@link Thread} to run this server in the background on. */
@@ -121,6 +122,25 @@ public class Server implements Runnable
     }
     
     /**
+     * Sets the port this {@link Server} will use when listening for incoming 
+     * connections.
+     * 
+     * @param port The port number as an int.
+     * @throws IllegalArgumentException Thrown if the port number is not a valid
+     *  TCP/IP port.
+     * @since 1.2
+     */
+    public void setPort(int port) throws IllegalArgumentException
+    {
+        if (port < 0 || port > 65536) {
+            throw new IllegalArgumentException(
+                "Port number must be between 0 and 65536"
+            );
+        }
+        this.port = port;
+    }
+    
+    /**
      * Opens the {@link DatagramSocket} and starts executing this {@link Server}
      *  in its background thread.
      * 
@@ -169,13 +189,14 @@ public class Server implements Runnable
     {
         runServer = false;
         try {
-            socket.close();
-            serverThread.join();
+            if (socket != null)
+                socket.close();
+            if (serverThread != null)
+                serverThread.join();
         } catch (InterruptedException iEx) {
             serverError("Server interrupted during shutdown!\n%s", 
                     iEx.getMessage());
         }
-        serverMessage("Server stopped", hostAddress, port);
     }
     
     /**
@@ -198,10 +219,20 @@ public class Server implements Runnable
                         msg.drawColour, msg.lineWeight);
                 break;
             case RECTANGLE:
-                Dimension d = new Dimension(msg.endPoint.x, msg.endPoint.y);
-                canvas.drawRectangle(msg.startPoint, d, msg.drawColour, 
-                        msg.fillShape, msg.hasBorder, msg.borderWeight, 
-                        msg.borderCol);
+                Dimension d = new Dimension(
+                        msg.endPoint.x - msg.startPoint.x, 
+                        msg.endPoint.y - msg.startPoint.y
+                );
+                Point p = msg.startPoint;
+                if (d.width < 0 && d.height > 0) { 
+                    p = new Point(msg.endPoint.x, msg.startPoint.y);
+                } else if (d.width > 0 && d.height < 0) { 
+                    p = new Point(msg.startPoint.x, msg.endPoint.y);
+                } else if (d.width < 0 && d.height < 0) { 
+                    p = new Point(msg.endPoint.x, msg.endPoint.y);
+                }
+                canvas.drawRectangle(p, d, msg.drawColour, msg.fillShape, 
+                        msg.hasBorder, msg.borderWeight, msg.borderCol);
                 break;
             case TEXT:
                 canvas.drawText(msg.textChar, msg.startPoint, msg.font, 
@@ -279,5 +310,7 @@ public class Server implements Runnable
                 }
             }
         }
+        
+        serverMessage("Server stopped", hostAddress, port);
     }
 }
