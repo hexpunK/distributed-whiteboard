@@ -100,6 +100,11 @@ public class Server implements Runnable
         return Server.INSTANCE;
     }
     
+    public Pair<String, Integer> getServerDetails()
+    {
+        return new Pair<>(hostAddress, port);
+    }
+    
     /**
      * Gets the singleton instance of {@link Server} which will run on the 
      * specified port number unless a previous singleton has been created 
@@ -185,7 +190,7 @@ public class Server implements Runnable
      * @param msg The {@link WhiteboardMessage} received that needs processing.
      * @since 1.1
      */
-    private void handleMessage(WhiteboardMessage msg)
+    private void handleWhiteboardMessage(WhiteboardMessage msg)
     {
         if (msg == null) return;
         WhiteboardCanvas canvas = WhiteboardGUI.getInstance().getCanvas();
@@ -271,7 +276,18 @@ public class Server implements Runnable
         while(runServer) {
             try {
                 socket.receive(packet);
-                handleMessage(WhiteboardMessage.decodeMessage(buffer));
+                MessageType t = NetMessage.getMessageType(buffer);
+                switch (t) {
+                    case DISCOVERY:
+                        break;
+                    case DRAW:
+                        handleWhiteboardMessage(WhiteboardMessage.decodeMessage(buffer));
+                        break;
+                    case JOIN:
+                        break;
+                    case RESPONSE:
+                        break;
+                }
             } catch (IOException ioEx) {
                 // Only print errors while the server is running.
                 if (runServer) {

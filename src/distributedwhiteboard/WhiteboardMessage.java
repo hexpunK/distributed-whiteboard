@@ -11,10 +11,10 @@ import java.io.Serializable;
  * , the start and end {@link Point}s and the drawing {@link Color}.
  * 
  * @author 6266215
- * @version 1.0
+ * @version 1.1
  * @since 2015-03-12
  */
-public class WhiteboardMessage implements Serializable
+public class WhiteboardMessage extends NetMessage implements Serializable
 {
     /** Serialisation ID. */
     private static final long serialVersionUID = 5459762541371665893L;
@@ -30,7 +30,7 @@ public class WhiteboardMessage implements Serializable
     private static final byte FONT_SIZE = FONT_NAME_SIZE+FONT_STY_SZ+2;
     
     /** The byte offset for the first {@link Point} object. */
-    private static final byte POINT_ONE_OFFSET = 1;
+    private static final byte POINT_ONE_OFFSET = 2;
     /** The byte offset for the second {@link Point}, this is optional. */
     private static final byte POINT_TWO_OFFSET = POINT_ONE_OFFSET+POINT_SIZE;
     /** The offset for the {@link Color} object used by shapes. */
@@ -58,8 +58,6 @@ public class WhiteboardMessage implements Serializable
     /** The byte offset for the border weight value. */
     private static final byte BORDER_W_OFFSET = BORDER_COL_OFFSET+COLOUR_SIZE;
     
-    /** The {@link MessageType} of this {@link WhiteboardMessage}. */
-    //public final MessageType type;
     /** The {@link DrawMode} for this message if it's a drawing message. */
     public final DrawMode mode;
     /** The {@link Point} to start drawing the object from. */
@@ -93,13 +91,14 @@ public class WhiteboardMessage implements Serializable
     public final char textChar;
     
     /**
-     * Creates an empty {@link DrawMode#TEXT} message, this is mostly used to 
-     * get the largest possible message for setting the server byte buffer size.
+     * Creates a {@link WhiteboardMessage} with no contents, this is usually 
+     * used to work out the maximum size of a {@link WhiteboardMessage}.
      * 
      * @since 1.0
      */
     public WhiteboardMessage()
     {
+        super(MessageType.DRAW);
         this.mode = DrawMode.TEXT;
         this.startPoint = new Point();
         this.endPoint = new Point();
@@ -127,6 +126,7 @@ public class WhiteboardMessage implements Serializable
     public WhiteboardMessage(DrawMode mode, Point p1, 
             Point p2, Color drawCol, int weight)
     {
+        super(MessageType.DRAW);
         this.mode = mode;
         this.startPoint = p1;
         this.endPoint = p2;
@@ -158,6 +158,7 @@ public class WhiteboardMessage implements Serializable
     public WhiteboardMessage(DrawMode mode, Point p1,  Point p2, Color drawCol, 
             int weight, boolean fill, boolean border, Color bCol)
     {
+        super(MessageType.DRAW);
         this.mode = mode;
         this.startPoint = p1;
         this.endPoint = p2;
@@ -184,6 +185,7 @@ public class WhiteboardMessage implements Serializable
     public WhiteboardMessage(DrawMode mode, Point p1, Color drawCol, Font f, 
             char text)
     {
+        super(MessageType.DRAW);
         this.mode = mode;
         this.startPoint = p1;
         this.endPoint = new Point();
@@ -205,6 +207,7 @@ public class WhiteboardMessage implements Serializable
      * @return Returns a byte array representation of this message.
      * @since 1.0
      */
+    @Override
     public byte[] encode() { return this.toString().getBytes(); }
     
     /**
@@ -219,7 +222,7 @@ public class WhiteboardMessage implements Serializable
     public static WhiteboardMessage decodeMessage(byte[] message)
     {
         String messageStr = new String(message).trim();
-        DrawMode m = DrawMode.parseChar(messageStr.charAt(0));
+        DrawMode m = DrawMode.parseChar(messageStr.charAt(1));
         
         Point p1 = stringToPoint(messageStr.substring(POINT_ONE_OFFSET, 
                 POINT_TWO_OFFSET));
@@ -427,7 +430,7 @@ public class WhiteboardMessage implements Serializable
         
         return new Font(name, style, size);
     }
-
+    
     /**
      * Creates a {@link String} representation of this {@link WhiteboardMessage}
      *  , the message structure will vary based on the requirements of the 
@@ -441,7 +444,7 @@ public class WhiteboardMessage implements Serializable
     {
         StringBuilder sb = new StringBuilder();
         
-        //sb.append(type.value);
+        sb.append(type.value);
         sb.append(mode.value);
         sb.append(pointToString(startPoint));
         switch (mode) {
@@ -468,27 +471,5 @@ public class WhiteboardMessage implements Serializable
         }
         
         return sb.toString();
-    }
-    
-    /**
-     * Message types to help the server understand what a {@link 
-     * WhiteboardMessage} is trying to communicate.
-     * 
-     * @version 1.0
-     * @since 1.0
-     */
-    public enum MessageType
-    {
-        /** This message contains data for a drawing object. */
-        DRAW('d');
-        
-        public final char value;
-        private MessageType(char value) { this.value = value; }
-        
-        @Override        
-        public String toString()
-        {
-            return String.format("%s(%c)", this.name(), this.value);
-        }
     }
 }
