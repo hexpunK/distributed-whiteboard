@@ -1,6 +1,7 @@
 package distributedwhiteboard.gui;
 
-import distributedwhiteboard.Server;
+import distributedwhiteboard.Client;
+import distributedwhiteboard.WhiteboardServer;
 import java.awt.Color;
 import java.awt.Container;
 import java.awt.event.WindowEvent;
@@ -232,9 +233,12 @@ public class WhiteboardGUI extends JFrame implements Runnable
     {
         super.processWindowEvent(e);
         if (e.getID() == WindowEvent.WINDOW_CLOSING) {
-            Server server = Server.getInstance();
+            WhiteboardServer server = WhiteboardServer.getInstance();
+            Client client = Client.getInstance();
             if (server != null)
                 server.stopServer();
+            if (client != null)
+                client.stopClient();
             if (this.repainter != null) {
                 try {
                     WhiteboardGUI.this.repainter.interrupt();

@@ -1,7 +1,7 @@
 package distributedwhiteboard.gui;
 
 import distributedwhiteboard.Client;
-import distributedwhiteboard.Server;
+import distributedwhiteboard.WhiteboardServer;
 import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -129,12 +129,16 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
     {
         for (JMenuItem saveItem : saveItems)
             saveItem.addActionListener(this);
+        
         portItem.addActionListener(this);
         connectItem.addActionListener(this);
         disconnectItem.addActionListener(this);
         exitItem.addActionListener(this);
         aboutItem.addActionListener(this);
         helpItem.addActionListener(this);
+        
+        connectItem.setEnabled(!Client.getInstance().isEnabled());
+        disconnectItem.setEnabled(Client.getInstance().isEnabled());
     }
 
     /**
@@ -193,6 +197,7 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
     public void actionPerformed(ActionEvent ae) 
     {
         Object source = ae.getSource();
+        Client client = Client.getInstance();
         
         if (source instanceof JMenuItem 
                 && saveItems.contains((JMenuItem)source))
@@ -205,17 +210,21 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
                     "Enter port number:", "Select Port", 
                     JOptionPane.QUESTION_MESSAGE);
             try {
-                Server.getInstance().setPort(Integer.parseInt(portStr));
+                WhiteboardServer.getInstance().setPort(Integer.parseInt(portStr));
             } catch (IllegalArgumentException ex) {
                 JOptionPane.showMessageDialog(parent, ex.getMessage(), 
                         "Invalid Port", JOptionPane.ERROR_MESSAGE);
             }
         } else if (source == connectItem) {
-            Server.getInstance().startServer();
-            Client.getInstance().setEnabled(true);
+            WhiteboardServer.getInstance().startServer();
+            client.startClient();
+            connectItem.setEnabled(!client.isEnabled());
+            disconnectItem.setEnabled(client.isEnabled());
         } else if (source == disconnectItem) {
-            Server.getInstance().stopServer();
-            Client.getInstance().setEnabled(false);
+            WhiteboardServer.getInstance().stopServer();
+            client.stopClient();
+            connectItem.setEnabled(!client.isEnabled());
+            disconnectItem.setEnabled(client.isEnabled());
         } else if (source == aboutItem)
             throw new UnsupportedOperationException("About is not implemented.");
         else if (source == helpItem)

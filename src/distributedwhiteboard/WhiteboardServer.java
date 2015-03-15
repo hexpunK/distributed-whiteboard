@@ -20,10 +20,10 @@ import java.net.UnknownHostException;
  * @version 1.2
  * @since 2015-03-13
  */
-public class Server implements Runnable
+public class WhiteboardServer implements Runnable
 {
-    /** The singleton instance of {@link Server}. */
-    private static Server INSTANCE;
+    /** *  The singleton instance of {@link WhiteboardServer}. */
+    private static WhiteboardServer INSTANCE;
     /** The maximum size of a {@link DatagramPacket} buffer. */
     private static final int BUFFER_SIZE 
             = new WhiteboardMessage().encode().length;
@@ -45,7 +45,7 @@ public class Server implements Runnable
      * 
      * @since 1.0
      */
-    private Server()
+    private WhiteboardServer()
     {
         this.socket = null;
         this.serverThread = null;
@@ -68,7 +68,7 @@ public class Server implements Runnable
      *  TCP/IP port.
      * @since 1.0
      */
-    private Server(int port) throws IllegalArgumentException
+    private WhiteboardServer(int port) throws IllegalArgumentException
     {
         if (port < 0 || port > 65536) {
             throw new IllegalArgumentException(
@@ -87,43 +87,43 @@ public class Server implements Runnable
     }
     
     /**
-     * Gets the singleton instance of {@link Server} which will run on port 
-     * 55551 unless a previous singleton has been created already.
+     * Gets the singleton instance of {@link WhiteboardServer} which will run on
+     * port 55551 unless a previous singleton has been created already.
      * 
-     * @return The singleton instance of {@link Server}.
+     * @return The singleton instance of {@link WhiteboardServer}.
      * @since 1.0
      */
-    public synchronized static Server getInstance()
+    public synchronized static WhiteboardServer getInstance()
     {
-        if (Server.INSTANCE == null)
-            Server.INSTANCE = new Server();
+        if (WhiteboardServer.INSTANCE == null)
+            WhiteboardServer.INSTANCE = new WhiteboardServer();
         
-        return Server.INSTANCE;
+        return WhiteboardServer.INSTANCE;
     }
     
     /**
-     * Gets the singleton instance of {@link Server} which will run on the 
-     * specified port number unless a previous singleton has been created 
+     * Gets the singleton instance of {@link WhiteboardServer} which will run on
+     * the specified port number unless a previous singleton has been created 
      * already.
      * 
      * @param port The port number to run the server on.
-     * @return The singleton instance of {@link Server}.
+     * @return The singleton instance of {@link WhiteboardServer}.
      * @throws IllegalArgumentException Thrown if the port number is not a valid
      *  TCP/IP port.
      * @since 1.0
      */
-    public synchronized static Server getInstance(int port) 
+    public synchronized static WhiteboardServer getInstance(int port) 
             throws IllegalArgumentException
     {
-        if (Server.INSTANCE == null)
-            Server.INSTANCE = new Server(port);
+        if (WhiteboardServer.INSTANCE == null)
+            WhiteboardServer.INSTANCE = new WhiteboardServer(port);
         
-        return Server.INSTANCE;
+        return WhiteboardServer.INSTANCE;
     }
     
     /**
-     * Sets the port this {@link Server} will use when listening for incoming 
-     * connections.
+     * Sets the port this {@link WhiteboardServer} will use when listening for 
+     * incoming connections.
      * 
      * @param port The port number as an int.
      * @throws IllegalArgumentException Thrown if the port number is not a valid
@@ -141,8 +141,8 @@ public class Server implements Runnable
     }
     
     /**
-     * Opens the {@link DatagramSocket} and starts executing this {@link Server}
-     *  in its background thread.
+     * Opens the {@link DatagramSocket} and starts executing this {@link 
+     * WhiteboardServer} in its background thread.
      * 
      * @return Returns true if the server can start, false if it fails for any 
      * reason.
@@ -173,7 +173,8 @@ public class Server implements Runnable
     }
     
     /**
-     * Checks to see whether this {@link Server} is still running or not.
+     * Checks to see whether this {@link WhiteboardServer} is still running or 
+     * not.
      * 
      * @return Returns true if the server is running, false otherwise.
      * @since 1.0

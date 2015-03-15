@@ -4,7 +4,7 @@ import distributedwhiteboard.gui.WhiteboardGUI;
 import javax.swing.SwingUtilities;
 
 /**
- * Starts the UDP listener {@link Server} and the {@link WhiteboardGUI}.
+ * Starts the UDP listener {@link WhiteboardServer} and the {@link WhiteboardGUI}.
  * 
  * @author 6266215
  * @version 1.0
@@ -21,15 +21,13 @@ public class Distributedwhiteboard
     public static void main(String[] args) 
     {
         int port = 55551;
-        String title = "";
-        boolean readingString = false;
+        String title = "Distributed Whiteboard - 6266215";
         
         
         for (int i = 0; i < args.length; i++) {
             switch(args[i]) {
                 case "-p":
                 case "--port":
-                    readingString = false;
                     // Allow the port to be specified.
                     try {
                         port = Integer.parseInt(args[i+1]);
@@ -38,15 +36,6 @@ public class Distributedwhiteboard
                         System.err.println("Port value must be a number.");
                     }
                     break;
-                case "--title":
-                    title = args[++i];
-                    readingString = true;
-                    break;
-                default:
-                    if (readingString)
-                        title += args[i];
-                    else
-                        System.err.printf("Unknown argument '%s'%n", args[i]);
             }
         }
         
@@ -64,7 +53,7 @@ public class Distributedwhiteboard
         });
         
         try {
-            Server.getInstance(port);
+            WhiteboardServer.getInstance(port);
         } catch (IllegalArgumentException ex) {
             System.err.println(ex.getMessage());
         }
