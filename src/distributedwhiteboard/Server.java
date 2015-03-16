@@ -280,9 +280,9 @@ public class Server implements Runnable
     private void sendImage(BufferedImage image, Pair<String, Integer> host)
     {
         try (Socket sender = new Socket(host.Left, host.Right)) {
-            ImageIO.write(image, "JPG", sender.getOutputStream());
+            ImageIO.write(image, "PNG", sender.getOutputStream());
         } catch (IOException ex) {
-            serverError("Error sending canvas to host %s:%d%n%s%n", 
+            serverError("Error sending image to host %s:%d%n%s%n", 
                     host.Left, host.Right, ex.getMessage());
         }
     }
@@ -366,15 +366,25 @@ public class Server implements Runnable
      *  join this distributed network.
      * @since 1.3
      */
-    private void handeJoinRequest(DiscoveryMessage msg)
+    private void handeJoinRequest(final DiscoveryMessage msg)
     {
         if (msg == null) {
             serverError("JoinRequest was incorrectly formed.");
             return;
         }
         serverMessage("Sending canvas to host %s:%d.", msg.IP, msg.Port);
-        sendImage(WhiteboardGUI.getInstance().getCanvas().getBufferedImage(), 
-                new Pair<>(msg.IP, msg.Port));
+        final BufferedImage canvas = 
+                WhiteboardGUI.getInstance().getCanvas().getBufferedImage();
+        new Thread(new Runnable() {
+            @Override
+            public void run()
+            {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException ex) {}
+                sendImage(canvas,  new Pair<>(msg.IP, msg.Port));
+            }
+        }).start();
     }
     
     /**

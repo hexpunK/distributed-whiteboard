@@ -234,18 +234,6 @@ public class Client implements Runnable
             if (host.equals(thisHost)) continue; // Don't message yourself.            
             sendMessage(message, host.Left, host.Right);
         }
-        if (message.type == MessageType.DRAW 
-                && ((WhiteboardMessage)message).mode == DrawMode.IMAGE) {
-            WhiteboardCanvas canvas = WhiteboardGUI.getInstance().getCanvas();
-            for (Pair<String, Integer> host : knownHosts) {
-                System.out.printf("Sending image to %s%n", host.Left);
-                try (Socket socket = new Socket(host.Left, Server.TCP_PORT)) {
-                    ImageIO.write(canvas.getBufferedImage(), "PNG", socket.getOutputStream());
-                } catch (IOException ex) {
-                    System.err.println("Failed to send image.");
-                }
-            }
-        }
     }
     
     /**
