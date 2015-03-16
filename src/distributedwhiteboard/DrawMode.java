@@ -1,12 +1,14 @@
 package distributedwhiteboard;
 
+import java.awt.image.BufferedImage;
+
 /**
  * {@link DrawMode} holds all the possible drawing modes this application 
  * supports.
  * 
  * @author 6266215
- * @version 1.2
- * @since 2015-03-12
+ * @version 1.3
+ * @since 2015-03-15
  */
 public enum DrawMode
 {
@@ -34,7 +36,12 @@ public enum DrawMode
      * Draws a rectangle between two points.
      * @since 1.1
      */
-    RECTANGLE('r');
+    RECTANGLE('r'),
+    /**
+     * Draws an {@link BufferedImage} to the canvas at a selected point.
+     * @since 1.3
+     */
+    IMAGE('i');
     
     public final char value;
     private DrawMode(char val) { this.value = val; }
@@ -50,21 +57,12 @@ public enum DrawMode
      */
     public static DrawMode parseChar(char c)
     {
-        switch(c) {
-            case 'l':
-                return LINE;
-            case 't':
-                return TEXT;
-            case 'p':
-                return POLYGON;
-            case 'f':
-                return FREEFORM_LINE;
-            case 'r':
-                return RECTANGLE;
-            default:
-                System.out.printf("Unknown DrawType '%c'\n", c);
-                return null;
+        for (DrawMode mode : DrawMode.values()) {
+            if (mode.value == c)
+                return mode;
         }
+        System.out.printf("Unknown DrawType '%c'%n", c);
+        return null;
     }
     
     /**

@@ -13,6 +13,7 @@ import java.awt.RenderingHints;
 import java.awt.RenderingHints.Key;
 import java.awt.Shape;
 import java.awt.image.BufferedImage;
+import java.awt.image.Raster;
 import java.util.HashMap;
 import java.util.Map;
 import javax.swing.JPanel;
@@ -23,7 +24,7 @@ import javax.swing.JPanel;
  * 
  * @author 6266215
  * @version 1.2
- * @since 2015-03-12
+ * @since 2015-03-15
  */
 public class WhiteboardCanvas extends JPanel
 {
@@ -43,11 +44,9 @@ public class WhiteboardCanvas extends JPanel
     public WhiteboardCanvas(int width, int height)
     {
         super();
+        
         this.canvas = new BufferedImage(width, height, 
-                BufferedImage.TYPE_INT_RGB);
-        Graphics g = this.canvas.getGraphics();
-        g.setColor(Color.WHITE);
-        g.fillRect(0, 0, width, height);
+                BufferedImage.TYPE_INT_ARGB);
         this.setFocusable(true);
     }
     
@@ -58,7 +57,12 @@ public class WhiteboardCanvas extends JPanel
      * @return The canvas image as a {@link BufferedImage}.
      * @since 1.2
      */
-    public BufferedImage getImage() { return this.canvas; }
+    public BufferedImage getBufferedImage() { return this.canvas; }
+    
+    public void setImage(Raster r)
+    {
+        canvas.setData(r);
+    }
     
     /**
      * Draws a line on the canvas between the specified points with the provided
@@ -207,6 +211,22 @@ public class WhiteboardCanvas extends JPanel
         }
         this.repaint();
     }
+    
+    /**
+     * Draws an image to this {@link WhiteboardCanvas}. The image can be sent 
+     * over the network, or just provided locally. As it is a {@link Raster}, 
+     * the size and position are not needed, this data is contained within the 
+     * object.
+     * 
+     * @param image The image to render as a {@link Raster} object.
+     * @since 1.3
+     */
+    public void drawImage(Raster image)
+    {
+        if (image == null) return;
+        canvas.setData(image);
+        this.repaint();
+    }
 
     /**
      * Gets the size this {@link WhiteboardCanvas} would prefer to use as a 
@@ -242,6 +262,6 @@ public class WhiteboardCanvas extends JPanel
         
         RenderingHints hints = new RenderingHints(hintMap);
         graphics.setRenderingHints(hints);
-        graphics.drawImage(canvas, 0, 0, null);
+        graphics.drawImage(canvas, 0, 0, Color.WHITE, null);
     }
 }

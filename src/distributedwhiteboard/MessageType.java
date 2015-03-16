@@ -31,15 +31,11 @@ public enum MessageType
      */
     public static MessageType parseChar(char c)
     {
-        if (c == MessageType.DRAW.value)
-            return MessageType.DRAW;
-        else if (c == MessageType.DISCOVERY.value)
-            return MessageType.DISCOVERY;
-        else if (c == MessageType.RESPONSE.value)
-            return MessageType.RESPONSE;
-        else if (c == MessageType.JOIN.value)
-            return MessageType.JOIN;
-        
+        for (MessageType type : MessageType.values()) {
+            if (type.value == c)
+                return type;
+        }
+        System.out.printf("Unknown MessageType '%c'%n", c);
         return null;
     }
     

@@ -1,34 +1,46 @@
 package distributedwhiteboard;
 
+import distributedwhiteboard.DiscoveryMessage.DiscoveryResponse;
 import distributedwhiteboard.gui.WhiteboardCanvas;
 import distributedwhiteboard.gui.WhiteboardGUI;
 import java.awt.Dimension;
 import java.awt.Point;
+import java.awt.image.BufferedImage;
+import java.awt.image.Raster;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import javax.imageio.ImageIO;
 
 /**
  * Listens for UDP connections from other instances of the Distributed 
  * Whiteboard application.
  *
  * @author 6266215
- * @version 1.2
- * @since 2015-03-13
+ * @version 1.3
+ * @since 201503-15
  */
-public class WhiteboardServer implements Runnable
+public class Server implements Runnable
 {
-    /** *  The singleton instance of {@link WhiteboardServer}. */
-    private static WhiteboardServer INSTANCE;
+    /** *  The singleton instance of {@link Server}. */
+    private static Server INSTANCE;
     /** The maximum size of a {@link DatagramPacket} buffer. */
     private static final int BUFFER_SIZE 
             = new WhiteboardMessage().encode().length;
+    /** A reserved port to listen for TCP packets on. */
+    public static final int TCP_PORT = 55558;
+    /** A reserved port to listen for multicast packets on. */
+    public static final int MULTICAST_PORT = 55559;
     /** A UDP {@link DatagramSocket} to listen for connections on. */
-    private DatagramSocket socket;
+    private DatagramSocket updServer;
+    /** A TCP {@link Socket} to receive images and large data over. */
+    private ServerSocket tcpServer;
     /** A port number to listen on. */
     private int port;
     /** The IP address of the host this server is running on. */
@@ -36,7 +48,7 @@ public class WhiteboardServer implements Runnable
     /** The {@link Thread} to run this server in the background on. */
     private Thread serverThread;
     /** Lets the server continue to execute in the background. */
-    private boolean runServer;
+    private volatile boolean runServer;
     
     /**
      * Creates a new instance of {@link Server}. This is private to force usage 
@@ -45,9 +57,9 @@ public class WhiteboardServer implements Runnable
      * 
      * @since 1.0
      */
-    private WhiteboardServer()
+    private Server()
     {
-        this.socket = null;
+        this.updServer = null;
         this.serverThread = null;
         this.runServer = false;
         this.port = 55551;
@@ -68,14 +80,14 @@ public class WhiteboardServer implements Runnable
      *  TCP/IP port.
      * @since 1.0
      */
-    private WhiteboardServer(int port) throws IllegalArgumentException
+    private Server(int port) throws IllegalArgumentException
     {
         if (port < 0 || port > 65536) {
             throw new IllegalArgumentException(
                 "Port number must be between 0 and 65536"
             );
         }
-        this.socket = null;
+        this.updServer = null;
         this.serverThread = null;
         this.runServer = false;
         this.port = port;
@@ -87,42 +99,42 @@ public class WhiteboardServer implements Runnable
     }
     
     /**
-     * Gets the singleton instance of {@link WhiteboardServer} which will run on
+     * Gets the singleton instance of {@link Server} which will run on
      * port 55551 unless a previous singleton has been created already.
      * 
-     * @return The singleton instance of {@link WhiteboardServer}.
+     * @return The singleton instance of {@link Server}.
      * @since 1.0
      */
-    public synchronized static WhiteboardServer getInstance()
+    public synchronized static Server getInstance()
     {
-        if (WhiteboardServer.INSTANCE == null)
-            WhiteboardServer.INSTANCE = new WhiteboardServer();
+        if (Server.INSTANCE == null)
+            Server.INSTANCE = new Server();
         
-        return WhiteboardServer.INSTANCE;
+        return Server.INSTANCE;
     }
     
     /**
-     * Gets the singleton instance of {@link WhiteboardServer} which will run on
+     * Gets the singleton instance of {@link Server} which will run on
      * the specified port number unless a previous singleton has been created 
      * already.
      * 
      * @param port The port number to run the server on.
-     * @return The singleton instance of {@link WhiteboardServer}.
+     * @return The singleton instance of {@link Server}.
      * @throws IllegalArgumentException Thrown if the port number is not a valid
      *  TCP/IP port.
      * @since 1.0
      */
-    public synchronized static WhiteboardServer getInstance(int port) 
+    public synchronized static Server getInstance(int port) 
             throws IllegalArgumentException
     {
-        if (WhiteboardServer.INSTANCE == null)
-            WhiteboardServer.INSTANCE = new WhiteboardServer(port);
+        if (Server.INSTANCE == null)
+            Server.INSTANCE = new Server(port);
         
-        return WhiteboardServer.INSTANCE;
+        return Server.INSTANCE;
     }
     
     /**
-     * Sets the port this {@link WhiteboardServer} will use when listening for 
+     * Sets the port this {@link Server} will use when listening for 
      * incoming connections.
      * 
      * @param port The port number as an int.
@@ -132,9 +144,12 @@ public class WhiteboardServer implements Runnable
      */
     public void setPort(int port) throws IllegalArgumentException
     {
-        if (port < 0 || port > 65536) {
+        if (port < 0 || port > 65536
+                || port == TCP_PORT || port == MULTICAST_PORT) {
             throw new IllegalArgumentException(
-                "Port number must be between 0 and 65536"
+                    String.format("Port number must be between 0 and 65536 but "
+                            + "cannot be reserved ports %d or %d", 
+                            TCP_PORT, MULTICAST_PORT)
             );
         }
         this.port = port;
@@ -142,7 +157,7 @@ public class WhiteboardServer implements Runnable
     
     /**
      * Opens the {@link DatagramSocket} and starts executing this {@link 
-     * WhiteboardServer} in its background thread.
+     * Server} in its background thread.
      * 
      * @return Returns true if the server can start, false if it fails for any 
      * reason.
@@ -151,9 +166,9 @@ public class WhiteboardServer implements Runnable
     public boolean startServer()
     {
         try {
-            socket = new DatagramSocket(port);
+            updServer = new DatagramSocket(port);
         } catch (SocketException ex) {
-            serverError("Couldn't create DatagramSocket.\n%s", 
+            serverError("Couldn't create DatagramSocket.%n%s", 
                     ex.getMessage());
             return false;
         }
@@ -173,7 +188,7 @@ public class WhiteboardServer implements Runnable
     }
     
     /**
-     * Checks to see whether this {@link WhiteboardServer} is still running or 
+     * Checks to see whether this {@link Server} is still running or 
      * not.
      * 
      * @return Returns true if the server is running, false otherwise.
@@ -190,13 +205,17 @@ public class WhiteboardServer implements Runnable
     {
         runServer = false;
         try {
-            if (socket != null)
-                socket.close();
+            if (updServer != null && !updServer.isClosed())
+                updServer.close();
+            if (tcpServer != null && !tcpServer.isClosed())
+                tcpServer.close();
             if (serverThread != null)
                 serverThread.join();
         } catch (InterruptedException iEx) {
-            serverError("Server interrupted during shutdown!\n%s", 
+            serverError("Server interrupted during shutdown!%n%s", 
                     iEx.getMessage());
+        } catch (IOException ioEx) {
+            serverError("Failed to close server.%n%s", ioEx.getMessage());
         }
     }
     
@@ -239,9 +258,106 @@ public class WhiteboardServer implements Runnable
                 canvas.drawText(msg.textChar, msg.startPoint, msg.font, 
                         msg.drawColour);
                 break;
+            case IMAGE:
+                Raster i = receiveImage();
+                canvas.drawImage(i);
+                break;
             default:
                 serverError("Unknown drawmode.");
         }
+    }
+    
+    /**
+     * Sends a specified {@link BufferedImage} over TCP to the specified host.
+     * The host is a {@link Pair} containing the IP address/ host name in the 
+     * left value, and the port number in the right value.
+     * 
+     * @param image
+     * @param host 
+     */
+    private void sendImage(BufferedImage image, Pair<String, Integer> host)
+    {
+        try (Socket sender = new Socket(host.Left, host.Right)) {
+            ImageIO.write(image, "JPG", sender.getOutputStream());
+        } catch (IOException ex) {
+            serverError("Error sending canvas to host %s:%d%n%s%n", 
+                    host.Left, host.Right, ex.getMessage());
+        }
+    }
+    
+    /**
+     * Receives an image sent to this instance of the Distributed Whiteboard by 
+     * setting up a TCP connection. This connection uses the port specified in
+     * TCP_PORT, so no other instances of the application should use this port.
+     * 
+     * @return Returns a {@link Raster} containing the image to render. Returns 
+     * null if there are any problems with receiving the networked image.
+     * @since 1.3
+     */
+    private Raster receiveImage()
+    {   
+        try {
+            tcpServer = new ServerSocket(TCP_PORT);
+        } catch (IOException ex) {
+            serverError("Couldn't set up TCP server.%n%s", ex.getMessage());
+            return null;
+        }
+        
+        try (Socket sock = tcpServer.accept()) {
+            BufferedImage img = ImageIO.read(sock.getInputStream());
+            return img.getRaster();
+        } catch (IOException ex) {
+            serverError("Error receiving image.%n%s", ex.getMessage());
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Handle a response from a {@link DiscoveryRequest} by trying to add the 
+     * found host to the list of known hosts in the {@link Client} component, 
+     * and by getting a copy of the {@link WhiteboardCanvas} from the new hosts.
+     * 
+     * @param msg The {@link DiscoveryMessage} send as a reply to this instance 
+     * of the application.
+     * @since 1.3
+     */
+    private void handleDiscoveryResponse(DiscoveryMessage msg)
+    {
+        Client client = Client.getInstance();
+        if (msg == null || client == null) return;
+        
+        String newIP = msg.IP;
+        int newPort = msg.Port;
+        Pair<String, Integer> host = new Pair<>(newIP, newPort);
+        
+        client.addKnownHost(host);
+        serverMessage("Receiving canvas from host %s:%d.", msg.IP, msg.Port);
+        DiscoveryMessage.JoinRequest join = new DiscoveryMessage.JoinRequest(hostName, TCP_PORT);
+        client.sendMessage(join, host.Left, host.Right);
+            
+        Raster raster = receiveImage();
+        WhiteboardGUI.getInstance().getCanvas().drawImage(raster);
+    }
+    
+    /**
+     * Responds to a {@link Client} that has requested to join the Distributed 
+     * Whiteboard network by sending a copy of the current {@link 
+     * WhiteboardCanvas} over TCP to update that client.
+     * 
+     * @param msg The {@link DiscoveryMessage} from the {@link Client} trying to
+     *  join this distributed network.
+     * @since 1.3
+     */
+    private void handeJoinRequest(DiscoveryMessage msg)
+    {
+        if (msg == null) {
+            serverError("message cointained something null");
+            return;
+        }
+        serverMessage("Sending canvas to host %s:%d.", msg.IP, msg.Port);
+        sendImage(WhiteboardGUI.getInstance().getCanvas().getBufferedImage(), 
+                new Pair<>(msg.IP, msg.Port));
     }
     
     /**
@@ -283,7 +399,7 @@ public class WhiteboardServer implements Runnable
     private void serverPrint(PrintStream strm, String fmtString, Object...args)
     {
         fmtString = String.format(fmtString, args);
-        strm.printf("(%s:%d) - %s\n", this.hostName, this.port, fmtString);
+        strm.printf("(%s:%d) - %s%n", this.hostName, this.port, fmtString);
     }
     
     /**
@@ -302,18 +418,18 @@ public class WhiteboardServer implements Runnable
         serverMessage("Listening for connections...");
         while(runServer) {
             try {
-                socket.receive(packet);
+                updServer.receive(packet);
                 MessageType t = NetMessage.getMessageType(buffer);
                 if (t == null) continue;
                 switch (t) {
-                    case DISCOVERY:
-                        break;
                     case DRAW:
                         handleWhiteboardMessage(WhiteboardMessage.decodeMessage(buffer));
                         break;
                     case JOIN:
+                        handeJoinRequest(DiscoveryResponse.decode(buffer));
                         break;
                     case RESPONSE:
+                        handleDiscoveryResponse(DiscoveryResponse.decode(buffer));
                         break;
                 }
             } catch (IOException ioEx) {

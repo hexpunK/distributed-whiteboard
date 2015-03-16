@@ -1,7 +1,7 @@
 package distributedwhiteboard.gui;
 
 import distributedwhiteboard.Client;
-import distributedwhiteboard.WhiteboardServer;
+import distributedwhiteboard.Server;
 import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -63,7 +63,7 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         closeIcon = WhiteboardGUI.createIcon(path+"process-stop.png");
         helpIcon = WhiteboardGUI.createIcon(path+"help-browser.png");
         imageIcon = WhiteboardGUI.createIcon(path+"image-x-generic.png");
-        connectIcon = WhiteboardGUI.createIcon(path+"view-refresh.png");
+        connectIcon = WhiteboardGUI.createIcon(path+"mail-send-receive.png");
         disconnectIcon = WhiteboardGUI.createIcon(path+"system-log-out.png");
         
         saveItems = new ArrayList<>();
@@ -197,31 +197,41 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
     public void actionPerformed(ActionEvent ae) 
     {
         Object source = ae.getSource();
+        Server server = Server.getInstance();
         Client client = Client.getInstance();
         
         if (source instanceof JMenuItem 
                 && saveItems.contains((JMenuItem)source))
+            // Save the current canvas to a file based on the button clicked.
             saveImage(ae);
         else if (source == exitItem)
+            // Quit the application.
             parent.dispatchEvent(new WindowEvent((JFrame)parent, 
                     WindowEvent.WINDOW_CLOSING));
         else if (source == portItem) {
+            // Change the port.
             String portStr = JOptionPane.showInputDialog(parent, 
                     "Enter port number:", "Select Port", 
                     JOptionPane.QUESTION_MESSAGE);
             try {
-                WhiteboardServer.getInstance().setPort(Integer.parseInt(portStr));
+                server.setPort(Integer.parseInt(portStr));
+            } catch (NumberFormatException nfe) {
+                JOptionPane.showMessageDialog(parent, "Port numbers can only be"
+                        + " whole numbers.", "Invalid Port", 
+                        JOptionPane.ERROR_MESSAGE);
             } catch (IllegalArgumentException ex) {
                 JOptionPane.showMessageDialog(parent, ex.getMessage(), 
                         "Invalid Port", JOptionPane.ERROR_MESSAGE);
             }
         } else if (source == connectItem) {
-            WhiteboardServer.getInstance().startServer();
+            // Connect to the network.
+            server.startServer();
             client.startClient();
             connectItem.setEnabled(!client.isEnabled());
             disconnectItem.setEnabled(client.isEnabled());
         } else if (source == disconnectItem) {
-            WhiteboardServer.getInstance().stopServer();
+            // Disconnect from the network.
+            server.stopServer();
             client.stopClient();
             connectItem.setEnabled(!client.isEnabled());
             disconnectItem.setEnabled(client.isEnabled());

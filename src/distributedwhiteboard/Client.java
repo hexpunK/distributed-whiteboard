@@ -1,5 +1,9 @@
 package distributedwhiteboard;
 
+import distributedwhiteboard.DiscoveryMessage.DiscoveryRequest;
+import distributedwhiteboard.DiscoveryMessage.DiscoveryResponse;
+import distributedwhiteboard.DiscoveryMessage.JoinRequest;
+import distributedwhiteboard.gui.WhiteboardCanvas;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -7,7 +11,9 @@ import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
 
 /**
  * Handles connection to and sending messages to other instances of this 
@@ -15,22 +21,26 @@ import java.util.ArrayList;
  *  a peer-to-peer network to communicate over.
  * 
  * @author 6266215
- * @version 1.2
+ * @version 1.3
  * @since 2015-03-15
  */
 public class Client implements Runnable
 {
     /** The singleton instance of this {@link Client}. */
     private static Client INSTANCE;
-    private static final int BUFFER_SIZE = 64;
+    /** The maximum size of the byte buffer for multicast packets. */
+    private static final int BUFFER_SIZE = DiscoveryRequest.getLargestSize();
     /** A list of known hosts to send drawing updates to. */
-    private final ArrayList<Pair<String, Integer>> knownHosts;
+    private final Set<Pair<String, Integer>> knownHosts;
     /** The details of this host, to stop the client from talking to itself. */
     private Pair<String, Integer> thisHost;
+    /** The details for the multicast group this {@link Client} uses. */
     private final Pair<InetAddress, Integer> multicast;
     /** This will be true if this {@link Client} is allowed to send packets. */
-    private boolean isSending;
+    private volatile boolean isSending;
+    /** A thread to listen for multicast connections in the background. */
     private Thread discoveryThread;
+    /** The {@link MulticastSocket} to receive discovery requests on. */
     private MulticastSocket receiver;
     
     /**
@@ -39,10 +49,7 @@ public class Client implements Runnable
     private Client()
     {
         this.isSending = false;
-        this.knownHosts = new ArrayList<>();
-        this.knownHosts.add(new Pair("localhost", 55551));
-        this.knownHosts.add(new Pair("localhost", 55552));
-        this.knownHosts.add(new Pair("192.168.0.69", 55552));
+        this.knownHosts = new HashSet<>();
         
         InetAddress addr;
         try {
@@ -70,9 +77,15 @@ public class Client implements Runnable
         return Client.INSTANCE;
     }
     
+    /**
+     * Initialises this {@link Client} and the background thread for listening 
+     * for multicast communication.
+     * 
+     * @since 1.3
+     */
     public void startClient()
     {
-        if (isSending) return; // Already started.
+        if (isEnabled()) return; // Already started.
         discoveryThread = new Thread(this);
         discoveryThread.start();
         
@@ -80,6 +93,12 @@ public class Client implements Runnable
         discoverClients();
     }
     
+    /**
+     * Stops the background multicast listener and disables the ability to send 
+     * packets for this {@link Client}.
+     * 
+     * @since 1.3
+     */
     public void stopClient()
     {
         isSending = false;
@@ -113,16 +132,26 @@ public class Client implements Runnable
     }
     
     /**
-     * Enables or disables this {@link Client}, preventing it from sending 
-     * network messages when disabled.
+     * Adds a new host to this {@link Client} for broadcasting the {@link 
+     * WhiteboardCanvas} changes to.
      * 
-     * @param enabled Set this to true to allow this Client to send network 
-     * messages, false to prevent this.
-     * @since 1.1
-     * @deprecated Call {@link Client#startClient()} and {@link 
-     * Client#stopClient()} instead to ensure network discovery works.
+     * @param host The host name/ port number {@link Pair} for the new host.
+     * @return Returns true if the host was added. Returns false if the host 
+     * was already known or if the host is this host.
      */
-    public void setEnabled(boolean enabled) { isSending = enabled; }
+    public synchronized boolean addKnownHost(Pair<String, Integer> host)
+    {
+        if (host.equals(thisHost)) 
+            return false;
+        
+        if (knownHosts.add(host)) {
+            System.out.printf("Added new host %s:%d%n", host.Left, host.Right);
+            return true;
+        }
+        
+        System.out.printf("Host %s:%d already known.%n", host.Left, host.Right);
+        return false;
+    }
     
     /**
      * Checks to see if this {@link Client} is able to send network messages or 
@@ -135,64 +164,90 @@ public class Client implements Runnable
     public boolean isEnabled() { return this.isSending; }
     
     /**
-     * Sends a UDP message out to all known clients. Messages are contained in 
-     * the {@link WhiteboardMessage} class, which encodes them into a byte 
-     * array to be sent in a {@link DatagramPacket}.
+     * Sends a UDP message out to the specified IP address and port number. The 
+     * message will be an encoded {@link NetMessage} implementation, allowing 
+     * for easy understanding of the contents of the message by the recipient.
      * 
-     * @param message The {@link WhiteboardMessage} to transmit to other 
-     * instances of this program.
-     * @since 1.0
+     * @param message The {@link NetMessage} to transmit to other instances of 
+     * this program.
+     * @param targetIp The IP address to send to as a String.
+     * @param targetPort The port number to send to as an int.
+     * @return Returns true if the message was sent, false otherwise. This does 
+     * not indicate the message was received however.
+     * @since 1.3
      */
-    public void sendMessage(WhiteboardMessage message)
+    public boolean sendMessage(NetMessage message, String targetIp, 
+            int targetPort)
     {
-        if (!isSending) return;
+        if (!isSending) return false;
         
-        byte[] bytes = message.toString().getBytes();
-        for (Pair<String, Integer> host : knownHosts) {
-            if (host.equals(thisHost)) continue; // Don't message yourself.
+        byte[] bytes = message.encode();
             
-            InetAddress address;
-            DatagramSocket socket;
-            DatagramPacket packet;
+        InetAddress address;
+        DatagramSocket socket;
+        DatagramPacket packet;
             
-            try {
-                address = InetAddress.getByName(host.Left);
-            } catch (UnknownHostException hostEx) {
-                System.err.printf("Could not find host %s:%d\n", 
-                        host.Left, host.Right);
-                continue;
-            }
+        try {
+            address = InetAddress.getByName(targetIp);
+        } catch (UnknownHostException hostEx) {
+            System.err.printf("Could not find host %s:%d%n", 
+                    targetIp, targetPort);
+            return false;
+        }
+           
+        try {
+            socket = new DatagramSocket();
+        } catch (SocketException sockEx) {
+            System.err.println("Could not create DatagramSocket");
+            return false;
+        }
             
-            try {
-                socket = new DatagramSocket();
-            } catch (SocketException sockEx) {
-                System.err.println("Could not create DatagramSocket");
-                continue;
-            }
-            
-            try {
-                packet = new DatagramPacket(bytes, bytes.length, 
-                        address, host.Right);
-                socket.send(packet);
-            } catch (IOException ioEx) {
-                System.err.printf("Error sending packet:\n%s\n", 
-                        ioEx.getMessage());
-            } finally {
-                socket.close();
-            }
+        try {
+            packet = new DatagramPacket(bytes, bytes.length, 
+                    address, targetPort);
+            socket.send(packet);
+        } catch (IOException ioEx) {
+            System.err.printf("Error sending packet:%n%s%n", ioEx.getMessage());
+            return false;
+        } finally {
+            socket.close();
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Sends a UDP message out to all known clients. Messages are contained in 
+     * the {@link NetMessage} class, which encodes them into a byte array to be 
+     * sent in a {@link DatagramPacket}.
+     * 
+     * @param message The {@link NetMessage} to transmit to other instances of 
+     * this program.
+     * @since 1.3
+     */
+    public synchronized void broadCastMessage(NetMessage message)
+    {
+            for (Pair<String, Integer> host : knownHosts) {
+            if (host.equals(thisHost)) continue; // Don't message yourself.            
+            sendMessage(message, host.Left, host.Right);
         }
     }
     
+    /**
+     * Sends out a multicast message to try and find other clients on the 
+     * network to communicate drawings to.
+     * 
+     */
     public void discoverClients()
     {
         if (multicast.Left == null) return; // No multicast group.
         
         DatagramPacket packet;
-        byte[] buffer = new byte[BUFFER_SIZE];
         
-        for (byte i = 0; i < BUFFER_SIZE;)
-            buffer[i] = i++;
+        DiscoveryRequest request = new DiscoveryRequest(thisHost.Left, 
+                thisHost.Right);
         
+        byte[] buffer = request.encode();
         try (MulticastSocket sender = new MulticastSocket()) {
             packet = new DatagramPacket(buffer, buffer.length, 
                     multicast.Left, multicast.Right);
@@ -201,6 +256,17 @@ public class Client implements Runnable
             System.err.println("Failed to send discovery message.");
             System.err.println(ex.getMessage());
         }
+    }
+    
+    private void sendDiscoveryResponse(DiscoveryMessage request)
+    {
+        Pair<String, Integer> source = new Pair<>(request.IP, request.Port);
+        if (source.equals(thisHost)) return;
+        
+        addKnownHost(source);
+        
+        DiscoveryResponse response = new DiscoveryResponse(thisHost.Left, thisHost.Right);
+        sendMessage(response, request.IP, request.Port);
     }
 
     @Override
@@ -229,10 +295,14 @@ public class Client implements Runnable
         System.out.println("Started network discovery.");
         while(isSending) {
             try {
-                byte[] buffer = new byte[BUFFER_SIZE];
-                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                byte[] buff = new byte[BUFFER_SIZE];
+                DatagramPacket packet = new DatagramPacket(buff, buff.length);
                 receiver.receive(packet);
                 System.out.println("Received a mutlicast packet.");
+                DiscoveryMessage msg = DiscoveryMessage.decode(buff);
+                if (msg.type == MessageType.DISCOVERY) {
+                    sendDiscoveryResponse(msg);
+                }
             } catch (IOException ex) {
                 if (!isSending) return; // Socket closed.
                 System.err.println("bfdgsvsf");

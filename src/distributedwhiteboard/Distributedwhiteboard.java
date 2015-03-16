@@ -4,7 +4,7 @@ import distributedwhiteboard.gui.WhiteboardGUI;
 import javax.swing.SwingUtilities;
 
 /**
- * Starts the UDP listener {@link WhiteboardServer} and the {@link WhiteboardGUI}.
+ * Starts the UDP listener {@link Server} and the {@link WhiteboardGUI}.
  * 
  * @author 6266215
  * @version 1.0
@@ -53,7 +53,7 @@ public class Distributedwhiteboard
         });
         
         try {
-            WhiteboardServer.getInstance(port);
+            Server.getInstance(port);
         } catch (IllegalArgumentException ex) {
             System.err.println(ex.getMessage());
         }

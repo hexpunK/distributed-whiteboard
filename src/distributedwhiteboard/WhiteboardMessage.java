@@ -13,8 +13,8 @@ import java.util.Map;
  * , the start and end {@link Point}s and the drawing {@link Color}.
  * 
  * @author 6266215
- * @version 1.1
- * @since 2015-03-12
+ * @version 1.2
+ * @since 2015-03-15
  */
 public class WhiteboardMessage extends NetMessage implements Serializable
 {
@@ -22,46 +22,46 @@ public class WhiteboardMessage extends NetMessage implements Serializable
     private static final long serialVersionUID = 5459762541371665893L;
     // <editor-fold defaultstate="collapsed" desc="Message sizes.">
     /** The size of a encoded {@link Point} object. */
-    private static final byte POINT_SIZE = 8;
+    protected static final byte POINT_SIZE = 8;
     /** The size of a encoded {@link Color} object. */
-    private static final byte COLOUR_SIZE = 6;
+    protected static final byte COLOUR_SIZE = 6;
     /** The maximum size a {@link Font} name can be. */
-    private static final byte FONT_NAME_SIZE = 30;
+    protected static final byte FONT_NAME_SIZE = 30;
     /** The size of a {@link Font} style once encoded. */
-    private static final byte FONT_STY_SZ = 1;
+    protected static final byte FONT_STY_SZ = 1;
     /** The total size of an encoded {@link Font} object. */
-    private static final byte FONT_SIZE = FONT_NAME_SIZE+FONT_STY_SZ+3;
+    protected static final byte FONT_SIZE = FONT_NAME_SIZE+FONT_STY_SZ+3;
     
     /** The byte offset for the first {@link Point} object. */
-    private static final byte POINT_ONE_OFFSET = 2;
+    protected static final byte POINT_ONE_OFFSET = 2;
     /** The byte offset for the second {@link Point}, this is optional. */
-    private static final byte POINT_TWO_OFFSET = POINT_ONE_OFFSET+POINT_SIZE;
+    protected static final byte POINT_TWO_OFFSET = POINT_ONE_OFFSET+POINT_SIZE;
     /** The offset for the {@link Color} object used by shapes. */
-    private static final byte COLOUR_OFFSET = POINT_TWO_OFFSET+POINT_SIZE;
+    protected static final byte COLOUR_OFFSET = POINT_TWO_OFFSET+POINT_SIZE;
     /** The byte offset of the line weight value. */
-    private static final byte WEIGHT_OFFSET = COLOUR_OFFSET+COLOUR_SIZE;
+    protected static final byte WEIGHT_OFFSET = COLOUR_OFFSET+COLOUR_SIZE;
     
     /** The byte offset of the {@link Color} object used by text. */
-    private static final byte FONT_COL_OFFSET = POINT_TWO_OFFSET;
+    protected static final byte FONT_COL_OFFSET = POINT_TWO_OFFSET;
     /** The byte offset of the text character position. */
-    private static final byte TEXT_OFFSET = FONT_COL_OFFSET+COLOUR_SIZE;
+    protected static final byte TEXT_OFFSET = FONT_COL_OFFSET+COLOUR_SIZE;
     /** The byte offset for the {@link Font} object. */
-    private static final byte FONT_OFFSET = TEXT_OFFSET+1;
+    protected static final byte FONT_OFFSET = TEXT_OFFSET+1;
     /** The index in a string where the {@link Font} style begins.*/
-    private static final byte FONT_STYLE_OFFSET = FONT_NAME_SIZE;
+    protected static final byte FONT_STY_OFFSET = FONT_NAME_SIZE;
     /** The index in a string where the {@link Font} underline attribute is. */
-    private static final byte FONT_UNDER_OFFSET = FONT_STYLE_OFFSET+FONT_STY_SZ;
+    protected static final byte FONT_UNDER_OFFSET = FONT_STY_OFFSET+FONT_STY_SZ;
     /** The index in a string where the {@link Font} size begins.*/
-    private static final byte FONT_SIZE_OFFSET = FONT_UNDER_OFFSET+1;
+    protected static final byte FONT_SIZE_OFFSET = FONT_UNDER_OFFSET+1;
     
     /** The byte offset for the shape fill boolean. */
-    private static final byte FILL_OFFSET = COLOUR_OFFSET+COLOUR_SIZE;
+    protected static final byte FILL_OFFSET = COLOUR_OFFSET+COLOUR_SIZE;
     /** The byte offset for the shape border boolean. */
-    private static final byte BORDER_OFFSET = FILL_OFFSET+1;
+    protected static final byte BORDER_OFFSET = FILL_OFFSET+1;
     /** The byte offset for the {@link Color} object used by borders. */
-    private static final byte BORDER_COL_OFFSET = BORDER_OFFSET+1;
+    protected static final byte BORDER_COL_OFFSET = BORDER_OFFSET+1;
     /** The byte offset for the border weight value. */
-    private static final byte BORDER_W_OFFSET = BORDER_COL_OFFSET+COLOUR_SIZE;
+    protected static final byte BORDER_W_OFFSET = BORDER_COL_OFFSET+COLOUR_SIZE;
     // </editor-fold>
     
     /** The {@link DrawMode} for this message if it's a drawing message. */
@@ -122,18 +122,16 @@ public class WhiteboardMessage extends NetMessage implements Serializable
      * Creates a new {@link WhiteboardMessage} that contains a message to draw 
      * between two points.
      * 
-     * @param mode The {@link DrawMode} to send.
      * @param p1 The starting {@link Point} for this drawing.
      * @param p2 The ending {@link Point} for this drawing.
      * @param drawCol The {@link Color} to draw with.
      * @param weight The thickness of the lines used when drawing.
      * @since 1.0
      */
-    public WhiteboardMessage(DrawMode mode, Point p1, 
-            Point p2, Color drawCol, int weight)
+    public WhiteboardMessage(Point p1, Point p2, Color drawCol, int weight)
     {
         super(MessageType.DRAW);
-        this.mode = mode;
+        this.mode = DrawMode.LINE;
         this.startPoint = p1;
         this.endPoint = p2;
         this.drawColour = drawCol;
@@ -150,7 +148,6 @@ public class WhiteboardMessage extends NetMessage implements Serializable
      * Creates a new {@link WhiteboardMessage} that contains a message to draw 
      * between two points with a border and/or a fill.
      * 
-     * @param mode The {@link DrawMode} to send.
      * @param p1 The starting {@link Point} for this drawing.
      * @param p2 The ending {@link Point} for this drawing.
      * @param drawCol The {@link Color} to draw with.
@@ -161,11 +158,11 @@ public class WhiteboardMessage extends NetMessage implements Serializable
      * @param bCol The {@link Color} to use when drawing the border.
      * @since 1.0
      */
-    public WhiteboardMessage(DrawMode mode, Point p1,  Point p2, Color drawCol, 
+    public WhiteboardMessage(Point p1,  Point p2, Color drawCol, 
             int weight, boolean fill, boolean border, Color bCol)
     {
         super(MessageType.DRAW);
-        this.mode = mode;
+        this.mode = DrawMode.RECTANGLE;
         this.startPoint = p1;
         this.endPoint = p2;
         this.drawColour = drawCol;
@@ -182,17 +179,15 @@ public class WhiteboardMessage extends NetMessage implements Serializable
      * Creates a new {@link WhiteboardMessage} that contains a message to draw 
      * the specified character in the provided {@link Font}.
      * 
-     * @param mode
      * @param p1
      * @param drawCol
      * @param f
      * @param text 
      */
-    public WhiteboardMessage(DrawMode mode, Point p1, Color drawCol, Font f, 
-            char text)
+    public WhiteboardMessage(Point p1, Color drawCol, Font f, char text)
     {
         super(MessageType.DRAW);
-        this.mode = mode;
+        this.mode = DrawMode.TEXT;
         this.startPoint = p1;
         this.endPoint = new Point();
         this.drawColour = drawCol;
@@ -203,6 +198,34 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         this.borderCol = Color.LIGHT_GRAY;
         this.font = f;
         this.textChar = text;
+    }
+    
+    /**
+     * Creates a {@link WhiteboardMessage} for drawing an image between two 
+     * specified points. The origin is specified in p1, and the end point is 
+     * specified in p2. This message does not contain the image data itself, 
+     * instead it indicates that the {@link Server} should start listening on 
+     * TCP for an image.
+     * 
+     * @param p1 The top-left corner position of the image as a {@link Point}.
+     * @param p2 The bottom-right corner position of the image as a {@link 
+     * Point}.
+     * @since 1.2
+     */
+    public WhiteboardMessage(Point p1, Point p2)
+    {
+        super(MessageType.DRAW);
+        this.mode = DrawMode.IMAGE;
+        this.startPoint = p1;
+        this.endPoint = p2;
+        this.drawColour = Color.BLACK;
+        this.lineWeight = 1;
+        this.fillShape = false;
+        this.hasBorder = false;
+        this.borderWeight = 1;
+        this.borderCol = Color.LIGHT_GRAY;
+        this.font = new Font("Serif", Font.PLAIN, 12);
+        this.textChar = '\0';
     }
         
     /**
@@ -215,6 +238,19 @@ public class WhiteboardMessage extends NetMessage implements Serializable
      */
     @Override
     public byte[] encode() { return this.toString().getBytes(); }
+    
+    /**
+     * Gets the largest possible size of a {@link WhiteboardMessage} so that the
+     *  receiving packet buffer can be made large enough to hold any possible 
+     * messages.
+     * 
+     * @return The maximum size of a {@link WhiteboardMessage} as an int.
+     * @since 1.2
+     */
+    public static int getLargestSize() 
+    { 
+        return new WhiteboardMessage().encode().length; 
+    }
     
     /**
      * Converts a provided byte array into a {@link WhiteboardMessage} if it 
@@ -251,13 +287,14 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                         || weight < 1)
                     return null;
                 
-                return new WhiteboardMessage(m, p1, p2, col, weight);
+                return new WhiteboardMessage(p1, p2, col, weight);
             case RECTANGLE:
                 p2 = stringToPoint(messageStr.substring(POINT_TWO_OFFSET, 
                         COLOUR_OFFSET));
                 col = stringToColor(messageStr.substring(COLOUR_OFFSET, 
                         FILL_OFFSET));
                 
+                // Work out if the boolean values were encoded to true or false.
                 String bVal = messageStr.substring(FILL_OFFSET, BORDER_OFFSET);
                 boolean fill = bVal.equals("t");
                 bVal = messageStr.substring(BORDER_OFFSET, BORDER_COL_OFFSET);
@@ -273,7 +310,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                         || borderCol == null || weight < 1)
                     return null;
                 
-                return new WhiteboardMessage(m, p1, p2, col, weight, fill, 
+                return new WhiteboardMessage(p1, p2, col, weight, fill, 
                         border, borderCol);
             case TEXT:
                 col = stringToColor(messageStr.substring(FONT_COL_OFFSET, 
@@ -285,7 +322,13 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                 if (m == null || p1 == null || font == null)
                     return null;
                 
-                return new WhiteboardMessage(m, p1, col, font, text);
+                return new WhiteboardMessage(p1, col, font, text);
+            case IMAGE:
+                p2 = stringToPoint(messageStr.substring(POINT_TWO_OFFSET, 
+                        POINT_TWO_OFFSET+POINT_SIZE));
+                
+                return new WhiteboardMessage(p1, p2);
+                
         }
         
         return null;
@@ -438,7 +481,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         }
         
         String name = s.substring(0, FONT_NAME_SIZE).trim();
-        int style = Integer.valueOf(s.substring(FONT_STYLE_OFFSET, 
+        int style = Integer.valueOf(s.substring(FONT_STY_OFFSET, 
                 FONT_UNDER_OFFSET));
         char under = s.charAt(FONT_UNDER_OFFSET);
         int size = Integer.valueOf(s.substring(FONT_SIZE_OFFSET));
@@ -492,6 +535,8 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                 sb.append(textChar);
                 sb.append(fontToString(font));
                 break;
+            case IMAGE:
+                sb.append(pointToString(endPoint));
         }
         
         return sb.toString();

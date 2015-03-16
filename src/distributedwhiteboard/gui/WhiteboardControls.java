@@ -20,6 +20,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.font.TextAttribute;
+import java.awt.image.BufferedImage;
 import java.util.Map;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -30,6 +31,8 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
+import javax.swing.border.Border;
+import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.MatteBorder;
 import say.swing.JFontChooser;
@@ -40,8 +43,8 @@ import say.swing.JFontChooser;
  * colour, line width, font and shape border settings.
  *
  * @author 6266215
- * @version 1.1
- * @since 2015-03-11
+ * @version 1.2
+ * @since 2015-03-15
  */
 public final class WhiteboardControls extends JPanel 
         implements ActionListener,  // Listen for button clicks.
@@ -54,25 +57,39 @@ public final class WhiteboardControls extends JPanel
     private static final long serialVersionUID = -6184851091001506327L;
     /** Identifier for the text tools card. */
     private static final String TEXT = "TEXT";
+    /** Identifier for the line tools card. */
+    private static final String LINES = "LINES";
     /** Identifier for the shape tools card. */
-    private static final String DRAWING = "SHAPES";
+    private static final String SHAPES = "SHAPES";
+    /** Identifier for the image tools card. */
+    private static final String IMAGES = "IMAGES";
     
     // <editor-fold defaultstate="collapsed" desc="Swing components">
     /** The {@link WhiteboardCanvas} to draw to. */
     private final WhiteboardCanvas canvas;
-    /** The layout for the various tool bars. */
-    private final FlowLayout layout;
+    // Layout managers for automatically spaced panels.
+    private final FlowLayout layout, toolInnerLayout;
     /** A {@link CardLayout} to hide tool panels. */
     private final CardLayout toolLayout;
+    // A border for tool panels.
+    private final Border toolBorder;
     // Tons of other Swing components.
-    private final JPanel toolBox, fontTools, drawTools, colPreview, bPreview;
+    private final JPanel toolBox, fontTools, lineTools, shapeTools, imageTools, 
+            colPreview, bPreview;
+    // Drawing mode selector.
     private final JComboBox<DrawMode> modeSelect;
+    // Line weight selection.
     private final JComboBox<Integer> weightSelect, borderWSelect;
+    // Checkboxes to enable/ disable features.
     private final JCheckBox setFilled, setBorder;
-    private final JButton colourPicker, fontPicker, borderPicker;
+    // Buttons to launch pickers.
+    private final JButton colourPicker, fontPicker, borderPicker, imagePicker;
+    // Font control buttons.
     private final JToggleButton boldButton, italicButton, underButton;
+    // Labels for unlabeled controls.
     private final JLabel modeLabel, weightLabel, borderWLabel, fontPreview;
-    private final ImageIcon boldIcon, italicIcon, underlineIcon;
+    // Icons for the buttons in these controls.
+    private final ImageIcon fontIcon, boldIcon, italicIcon, underlineIcon;
     // </editor-fold>
     // Points for drawing lines.
     private Point lastPoint, firstPoint;
@@ -86,7 +103,8 @@ public final class WhiteboardControls extends JPanel
     private int lineWeight, borderWeight;
     // Settings for extra shape drawing features.
     private boolean fillShape, borderShape;
-    // Icons for the buttons in these controls.
+    // Image to draw to the screen.
+    private BufferedImage image;
     
     /**
      * Set up a new set of {@link WhiteboardControls} for a specified {@link 
@@ -101,9 +119,13 @@ public final class WhiteboardControls extends JPanel
         this.canvas = canvas;
         this.layout = new FlowLayout();
         this.toolLayout = new CardLayout();
+        this.toolInnerLayout = new FlowLayout(FlowLayout.CENTER, 5, 2);
+        this.toolBorder = new MatteBorder(0, 1, 0, 0, Color.LIGHT_GRAY);
         this.setLayout(layout);
         
         String path = "/distributedwhiteboard/gui/assets/";
+        this.fontIcon = WhiteboardGUI.createIcon(
+                path+"preferences-desktop-font.png");
         this.boldIcon = WhiteboardGUI.createIcon(
                 path+"format-text-bold.png");
         this.italicIcon = WhiteboardGUI.createIcon(
@@ -111,47 +133,47 @@ public final class WhiteboardControls extends JPanel
         this.underlineIcon = WhiteboardGUI.createIcon(
                 path+"format-text-underline.png");
         
-        this.modeLabel = new JLabel("Drawing Mode:");
-        this.weightLabel = new JLabel("Line Weight:");
+        this.modeLabel = new JLabel("Tool:");
+        this.modeSelect = new JComboBox<>(DrawMode.values());
+        this.modeSelect.setEditable(false);
         
-        this.toolBox = new JPanel(toolLayout);
-        
-        this.fontTools = new JPanel(new FlowLayout());
-        this.fontTools.setLayout(new FlowLayout(FlowLayout.CENTER, 5, 2));
-        this.fontTools.setBorder(new MatteBorder(0, 1, 0, 0, Color.LIGHT_GRAY));
-        
-        this.fontPicker = new JButton("Change Font");
-        
-        this.fontPreview = new JLabel("Text");
-        
-        this.boldButton = new JToggleButton("Bold", boldIcon);
-        this.italicButton = new JToggleButton("Italic", italicIcon);
-        this.underButton = new JToggleButton("Underline", underlineIcon);
-        
-        this.drawTools = new JPanel(new FlowLayout());
-        this.drawTools.setLayout(new FlowLayout(FlowLayout.CENTER, 5, 2));
-        this.drawTools.setBorder(new MatteBorder(0, 1, 0, 0, Color.LIGHT_GRAY));
+        this.colourPicker = new JButton("Colour");
         
         this.colPreview = new JPanel();
         this.colPreview.setBorder(new LineBorder(Color.BLACK));
         
-        this.colourPicker = new JButton("Change Colour");
+        this.toolBox = new JPanel(toolLayout);
         
-        this.modeSelect = new JComboBox<>(DrawMode.values());
-        this.modeSelect.setEditable(false);
+        this.fontTools = new JPanel(toolInnerLayout);
+        this.fontTools.setBorder(toolBorder);
         
+        this.fontPreview = new JLabel("Text");
+        this.fontPreview.setBorder(new EmptyBorder(0, 5, 0, 5));
+        
+        this.fontPicker = new JButton("Font", fontIcon);
+        this.boldButton = new JToggleButton("Bold", boldIcon);
+        this.italicButton = new JToggleButton("Italic", italicIcon);
+        this.underButton = new JToggleButton("Underline", underlineIcon);
+        
+        this.lineTools = new JPanel(toolInnerLayout);
+        this.lineTools.setBorder(toolBorder);
+        
+        this.weightLabel = new JLabel("Weight:");
         this.weightSelect = new JComboBox<>(new Integer[]{1, 2, 4, 8, 16});
         this.weightSelect.setEditable(false);
+        
+        this.shapeTools = new JPanel(toolInnerLayout);
+        this.shapeTools.setBorder(toolBorder);
         
         this.setFilled = new JCheckBox("Filled:");
         this.setFilled.setHorizontalTextPosition(SwingConstants.LEFT);
         this.setFilled.setSelected(false);
         
         this.setBorder = new JCheckBox("Border:");
-        this.setBorder.setHorizontalTextPosition(SwingConstants.LEFT);
+        this.setBorder.setHorizontalTextPosition(SwingConstants.LEFT);  
         this.setBorder.setSelected(false);
         
-        this.borderWLabel = new JLabel("Border Weight:");
+        this.borderWLabel = new JLabel("Weight:");
         
         this.bPreview = new JPanel();
         this.bPreview.setBorder(new LineBorder(Color.BLACK));
@@ -163,6 +185,11 @@ public final class WhiteboardControls extends JPanel
         this.borderWSelect.setEditable(false);
         this.borderWSelect.setEnabled(false);
         
+        this.imageTools = new JPanel(toolInnerLayout);
+        this.imageTools.setBorder(toolBorder);
+        
+        this.imagePicker = new JButton("Pick Image");
+        
         this.mode = DrawMode.LINE;
         this.font = new Font("Arial", Font.PLAIN, 12);
         this.colour = Color.BLACK;
@@ -173,6 +200,7 @@ public final class WhiteboardControls extends JPanel
         this.borderShape = false;
         this.borderWeight = 1;
         this.borderColour = Color.WHITE;
+        this.image = null;
         
         setupLayout();
     }
@@ -216,15 +244,20 @@ public final class WhiteboardControls extends JPanel
         fontTools.add(underButton);
         toolBox.add(fontTools, TEXT);
         
-        drawTools.add(weightLabel);
-        drawTools.add(weightSelect);
-        drawTools.add(setFilled);
-        drawTools.add(setBorder);
-        drawTools.add(borderPicker);
-        drawTools.add(bPreview);
-        drawTools.add(borderWLabel);
-        drawTools.add(borderWSelect);
-        toolBox.add(drawTools, DRAWING);
+        lineTools.add(weightLabel);
+        lineTools.add(weightSelect);
+        toolBox.add(lineTools, LINES);
+        
+        shapeTools.add(setFilled);
+        shapeTools.add(setBorder);
+        shapeTools.add(borderPicker);
+        shapeTools.add(bPreview);
+        shapeTools.add(borderWLabel);
+        shapeTools.add(borderWSelect);
+        toolBox.add(shapeTools, SHAPES);
+        
+        imageTools.add(imagePicker);
+        toolBox.add(imageTools, IMAGES);
         
         this.add(toolBox);
         
@@ -232,8 +265,8 @@ public final class WhiteboardControls extends JPanel
         colPreview.setBackground(colour);
         bPreview.setBackground(borderColour);
         fontPicker.setFont(font);
-        enableDrawControls(mode == DrawMode.RECTANGLE);
-        toolLayout.show(toolBox, DRAWING);
+        enableDrawControls();
+        toolLayout.show(toolBox, LINES);
     }
     
     /**
@@ -272,24 +305,17 @@ public final class WhiteboardControls extends JPanel
     /**
      * Enable the shape editing and drawing tools.
      * 
-     * @param borderControls Set to true to enable the border controls check 
-     * box. False to disable it.
      * @since 1.1
      */
-    private void enableDrawControls(boolean borderControls)
+    private void enableDrawControls()
     {
-        Component[] drawControls = drawTools.getComponents();
+        Component[] drawControls = lineTools.getComponents();
         for (Component com : drawControls) {
             com.setEnabled(true);
         }
         borderPicker.setEnabled(borderShape);
         borderWSelect.setEnabled(borderShape);
         borderWLabel.setEnabled(borderShape);
-        
-        weightLabel.setEnabled(!borderControls);
-        weightSelect.setEnabled(!borderControls);
-        setFilled.setEnabled(borderControls);
-        setBorder.setEnabled(borderControls);
     }
     
     /**
@@ -299,7 +325,7 @@ public final class WhiteboardControls extends JPanel
      */
     private void disableDrawControls()
     {
-        Component[] drawControls = drawTools.getComponents();
+        Component[] drawControls = lineTools.getComponents();
         for (Component com : drawControls) {
             com.setEnabled(false);
         }
@@ -323,10 +349,10 @@ public final class WhiteboardControls extends JPanel
             return;
         }
         
-        WhiteboardMessage msg = new WhiteboardMessage(DrawMode.LINE, lastPoint, 
-                nextPoint, colour, lineWeight);
+        WhiteboardMessage msg = new WhiteboardMessage(lastPoint, nextPoint, 
+                colour, lineWeight);
         lastPoint = canvas.drawLine(lastPoint, nextPoint, colour, lineWeight);
-        Client.getInstance().sendMessage(msg);
+        Client.getInstance().broadCastMessage(msg);
     }
     
     /**
@@ -344,9 +370,8 @@ public final class WhiteboardControls extends JPanel
             firstPoint = point;
         } else {
             // Create the message, we're going to modify some of this data.
-            WhiteboardMessage msg = new WhiteboardMessage(DrawMode.RECTANGLE, 
-                    firstPoint, point, colour, borderWeight, fillShape, 
-                    borderShape, borderColour);
+            WhiteboardMessage msg = new WhiteboardMessage(firstPoint, point, 
+                    colour, borderWeight, fillShape, borderShape, borderColour);
             // Calculate the rectangle size.
             Dimension rectSize = new Dimension(
                     point.x - firstPoint.x, 
@@ -366,7 +391,7 @@ public final class WhiteboardControls extends JPanel
             lastPoint = canvas.drawRectangle(firstPoint, rectSize, colour, 
                     fillShape, borderShape, borderWeight, borderColour);
             firstPoint = null; // Reset the origin point.
-            Client.getInstance().sendMessage(msg);
+            Client.getInstance().broadCastMessage(msg);
         }
     }
     
@@ -380,10 +405,10 @@ public final class WhiteboardControls extends JPanel
     private void drawText(char c)
     {
         if (lastPoint != null) {
-            WhiteboardMessage msg = new WhiteboardMessage(DrawMode.TEXT, 
-                    lastPoint, colour, font, c);
+            WhiteboardMessage msg = new WhiteboardMessage(lastPoint, colour, 
+                    font, c);
             lastPoint = canvas.drawText(c, lastPoint, font, colour);
-            Client.getInstance().sendMessage(msg);
+            Client.getInstance().broadCastMessage(msg);
         }
     }
         
@@ -434,6 +459,20 @@ public final class WhiteboardControls extends JPanel
             return newCol;
         
         return colour;
+    }
+    
+    /**
+     * Shows the file browser, and allows the user to select an image from their
+     *  storage.
+     * 
+     * @return Returns the selected image as a {@link BufferedImage}. If no 
+     * image is selected or an unsupported type is selected, returns null 
+     * instead.
+     * @since 1.2
+     */
+    private BufferedImage showImagePicker()
+    {
+        return null;
     }
     
     /**
@@ -524,7 +563,7 @@ public final class WhiteboardControls extends JPanel
         else if (source == underButton)
             toggleUnderline();
         else
-            System.err.printf("Unknown action! (%s)\n", e.paramString());
+            System.err.printf("Unknown action! (%s)%n", e.paramString());
     }
     
     /**
@@ -543,10 +582,14 @@ public final class WhiteboardControls extends JPanel
             case LINE:
             case POLYGON:
             case FREEFORM_LINE:
-            case RECTANGLE:
-                enableDrawControls(mode == DrawMode.RECTANGLE);
+                enableDrawControls();
                 disableFontControls();
-                toolLayout.show(toolBox, DRAWING);
+                toolLayout.show(toolBox, LINES);
+                break;
+            case RECTANGLE:
+                enableDrawControls();
+                disableFontControls();
+                toolLayout.show(toolBox, SHAPES);
                 break;
             case TEXT:
                 enableFontControls();
@@ -651,9 +694,13 @@ public final class WhiteboardControls extends JPanel
                         lastPoint = null;
                         firstPoint = null;
                         break;
-                    default:
-                        System.err.printf("Mouse button '%d' does nothing\n", 
-                                e.getButton());
+                }
+                break;
+            case FREEFORM_LINE:
+                if (e.getButton() == MouseEvent.BUTTON1) {
+                    lastPoint = newPoint;
+                    drawLine(newPoint);
+                    lastPoint = null;
                 }
                 break;
             case RECTANGLE:
@@ -665,9 +712,6 @@ public final class WhiteboardControls extends JPanel
                         lastPoint = null;
                         firstPoint = null;
                         break;
-                    default:
-                        System.err.printf("Mouse button '%d' does nothing\n", 
-                                e.getButton());
                 }
                 break;
             case TEXT:

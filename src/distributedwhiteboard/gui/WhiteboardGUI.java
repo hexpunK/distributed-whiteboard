@@ -1,7 +1,7 @@
 package distributedwhiteboard.gui;
 
 import distributedwhiteboard.Client;
-import distributedwhiteboard.WhiteboardServer;
+import distributedwhiteboard.Server;
 import java.awt.Color;
 import java.awt.Container;
 import java.awt.event.WindowEvent;
@@ -201,7 +201,7 @@ public class WhiteboardGUI extends JFrame implements Runnable
                 return false;
         }
             
-        BufferedImage img = canvas.getImage();
+        BufferedImage img = canvas.getBufferedImage();
         try {
             ImageIO.write(img, type.name().toLowerCase(), file);
         } catch (IOException ex) {
@@ -233,7 +233,7 @@ public class WhiteboardGUI extends JFrame implements Runnable
     {
         super.processWindowEvent(e);
         if (e.getID() == WindowEvent.WINDOW_CLOSING) {
-            WhiteboardServer server = WhiteboardServer.getInstance();
+            Server server = Server.getInstance();
             Client client = Client.getInstance();
             if (server != null)
                 server.stopServer();
