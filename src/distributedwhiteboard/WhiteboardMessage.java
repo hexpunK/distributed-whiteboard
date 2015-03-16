@@ -96,6 +96,8 @@ public class WhiteboardMessage extends NetMessage implements Serializable
     /** The character to draw. */
     public final char textChar;
     
+    public final int imageScale;
+    
     /**
      * Creates a {@link WhiteboardMessage} with no contents, this is usually 
      * used to work out the maximum size of a {@link WhiteboardMessage}.
@@ -116,6 +118,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         this.borderCol = Color.LIGHT_GRAY;
         this.font = new Font("Serif", Font.PLAIN, 12);
         this.textChar = '\0';
+        this.imageScale = 0;
     }
     
     /**
@@ -142,6 +145,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         this.borderCol = Color.LIGHT_GRAY;
         this.font = new Font("Serif", Font.PLAIN, 12);
         this.textChar = '\0';
+        this.imageScale = 0;
     }
     
     /**
@@ -173,6 +177,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         this.borderCol = bCol;
         this.font = new Font("Serif", Font.PLAIN, 12);
         this.textChar = '\0';
+        this.imageScale = 0;
     }
     
     /**
@@ -198,6 +203,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         this.borderCol = Color.LIGHT_GRAY;
         this.font = f;
         this.textChar = text;
+        this.imageScale = 0;
     }
     
     /**
@@ -208,16 +214,16 @@ public class WhiteboardMessage extends NetMessage implements Serializable
      * TCP for an image.
      * 
      * @param p1 The top-left corner position of the image as a {@link Point}.
-     * @param p2 The bottom-right corner position of the image as a {@link 
-     * Point}.
+     * @param scale The scaling of the image. This value must be between 0 and 
+     * 100, and will be divided by 100 to create a multiplier.
      * @since 1.2
      */
-    public WhiteboardMessage(Point p1, Point p2)
+    public WhiteboardMessage(Point p1, int scale)
     {
         super(MessageType.DRAW);
         this.mode = DrawMode.IMAGE;
         this.startPoint = p1;
-        this.endPoint = p2;
+        this.endPoint = new Point();
         this.drawColour = Color.BLACK;
         this.lineWeight = 1;
         this.fillShape = false;
@@ -226,6 +232,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         this.borderCol = Color.LIGHT_GRAY;
         this.font = new Font("Serif", Font.PLAIN, 12);
         this.textChar = '\0';
+        this.imageScale = scale;
     }
         
     /**
@@ -324,10 +331,18 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                 
                 return new WhiteboardMessage(p1, col, font, text);
             case IMAGE:
-                p2 = stringToPoint(messageStr.substring(POINT_TWO_OFFSET, 
-                        POINT_TWO_OFFSET+POINT_SIZE));
+                String scl = messageStr.substring(POINT_TWO_OFFSET);
                 
-                return new WhiteboardMessage(p1, p2);
+                if (scl == null || scl.isEmpty()) return null;
+                int scaling = 0;
+                try {
+                    scaling = Integer.parseInt(scl);
+                } catch (NumberFormatException nfe) {
+                    System.err.println("Scaling value was not a number.");
+                    return null;
+                }
+                
+                return new WhiteboardMessage(p1, scaling);
                 
         }
         
@@ -536,7 +551,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                 sb.append(fontToString(font));
                 break;
             case IMAGE:
-                sb.append(pointToString(endPoint));
+                sb.append(String.format("%03d", imageScale));
         }
         
         return sb.toString();

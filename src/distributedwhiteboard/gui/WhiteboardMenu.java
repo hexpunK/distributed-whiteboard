@@ -251,7 +251,7 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
     public enum SaveType 
     {
         /** Save an image in the JPEG format. */
-        JPEG,
+        JPEG, JPG,
         /** Save an image in the PNG format. */
         PNG,
         /** Save an image in the BMP format. */

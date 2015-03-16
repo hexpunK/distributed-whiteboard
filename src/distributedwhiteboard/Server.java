@@ -6,7 +6,6 @@ import distributedwhiteboard.gui.WhiteboardGUI;
 import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.image.BufferedImage;
-import java.awt.image.Raster;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.DatagramPacket;
@@ -228,7 +227,10 @@ public class Server implements Runnable
      */
     private void handleWhiteboardMessage(WhiteboardMessage msg)
     {
-        if (msg == null) return;
+        if (msg == null) {
+            System.err.println("Could not decode WhiteboardMessage");
+            return;
+        }
         WhiteboardCanvas canvas = WhiteboardGUI.getInstance().getCanvas();
         
         switch (msg.mode) {
@@ -259,8 +261,8 @@ public class Server implements Runnable
                         msg.drawColour);
                 break;
             case IMAGE:
-                Raster i = receiveImage();
-                canvas.drawImage(i);
+                BufferedImage i = receiveImage();
+                canvas.drawImage(new Point(), i, msg.imageScale);
                 break;
             default:
                 serverError("Unknown drawmode.");
@@ -290,24 +292,36 @@ public class Server implements Runnable
      * setting up a TCP connection. This connection uses the port specified in
      * TCP_PORT, so no other instances of the application should use this port.
      * 
-     * @return Returns a {@link Raster} containing the image to render. Returns 
-     * null if there are any problems with receiving the networked image.
+     * @return Returns a {@link BufferedImage} containing the image to render. 
+     * Returns null if there are any problems with receiving the networked 
+     * image.
      * @since 1.3
      */
-    private Raster receiveImage()
+    private BufferedImage receiveImage()
     {   
         try {
             tcpServer = new ServerSocket(TCP_PORT);
+            tcpServer.setSoTimeout(3000);
         } catch (IOException ex) {
             serverError("Couldn't set up TCP server.%n%s", ex.getMessage());
             return null;
         }
         
         try (Socket sock = tcpServer.accept()) {
+            sock.setSoTimeout(3000);
             BufferedImage img = ImageIO.read(sock.getInputStream());
-            return img.getRaster();
+            return img;
+        } catch (SocketException sEx) {
+            serverError("Socket timed out receiving image.");
         } catch (IOException ex) {
             serverError("Error receiving image.%n%s", ex.getMessage());
+        } finally {
+            try {
+                if (tcpServer != null && !tcpServer.isClosed())
+                    tcpServer.close();
+            } catch (IOException closeEx) {
+                serverError(closeEx.getMessage());
+            }
         }
         
         return null;
@@ -325,7 +339,10 @@ public class Server implements Runnable
     private void handleDiscoveryResponse(DiscoveryMessage msg)
     {
         Client client = Client.getInstance();
-        if (msg == null || client == null) return;
+        if (msg == null || client == null) {
+            System.err.println("Could not decode DiscoveryMessage");
+            return;
+        }
         
         String newIP = msg.IP;
         int newPort = msg.Port;
@@ -336,8 +353,8 @@ public class Server implements Runnable
         DiscoveryMessage.JoinRequest join = new DiscoveryMessage.JoinRequest(hostName, TCP_PORT);
         client.sendMessage(join, host.Left, host.Right);
             
-        Raster raster = receiveImage();
-        WhiteboardGUI.getInstance().getCanvas().drawImage(raster);
+        BufferedImage image = receiveImage();
+        WhiteboardGUI.getInstance().getCanvas().drawImage(new Point(), image, 1.0f);
     }
     
     /**
@@ -352,7 +369,7 @@ public class Server implements Runnable
     private void handeJoinRequest(DiscoveryMessage msg)
     {
         if (msg == null) {
-            serverError("message cointained something null");
+            serverError("JoinRequest was incorrectly formed.");
             return;
         }
         serverMessage("Sending canvas to host %s:%d.", msg.IP, msg.Port);
@@ -412,15 +429,21 @@ public class Server implements Runnable
     public void run()
     {
         runServer = true;
-        byte[] buffer = new byte[BUFFER_SIZE];
-        DatagramPacket packet = new DatagramPacket(buffer, BUFFER_SIZE);
+        byte[] buffer;
+        DatagramPacket packet;
+        MessageType t;
         
         serverMessage("Listening for connections...");
         while(runServer) {
             try {
+                buffer = new byte[BUFFER_SIZE];
+                packet = new DatagramPacket(buffer, BUFFER_SIZE);
                 updServer.receive(packet);
-                MessageType t = NetMessage.getMessageType(buffer);
-                if (t == null) continue;
+                t = NetMessage.getMessageType(buffer);
+                if (t == null) {
+                    serverMessage("Received an unknown message type. Ignored.");
+                    continue;
+                }
                 switch (t) {
                     case DRAW:
                         handleWhiteboardMessage(WhiteboardMessage.decodeMessage(buffer));

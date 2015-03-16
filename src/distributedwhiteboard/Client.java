@@ -4,16 +4,19 @@ import distributedwhiteboard.DiscoveryMessage.DiscoveryRequest;
 import distributedwhiteboard.DiscoveryMessage.DiscoveryResponse;
 import distributedwhiteboard.DiscoveryMessage.JoinRequest;
 import distributedwhiteboard.gui.WhiteboardCanvas;
+import distributedwhiteboard.gui.WhiteboardGUI;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
+import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
+import javax.imageio.ImageIO;
 
 /**
  * Handles connection to and sending messages to other instances of this 
@@ -59,7 +62,7 @@ public class Client implements Runnable
             System.err.println(hostEx.getMessage());
             addr = null;
         }
-        this.multicast = new Pair<>(addr, 55559);
+        this.multicast = new Pair<>(addr, Server.MULTICAST_PORT);
     }
     
     /**
@@ -227,9 +230,21 @@ public class Client implements Runnable
      */
     public synchronized void broadCastMessage(NetMessage message)
     {
-            for (Pair<String, Integer> host : knownHosts) {
+        for (Pair<String, Integer> host : knownHosts) {
             if (host.equals(thisHost)) continue; // Don't message yourself.            
             sendMessage(message, host.Left, host.Right);
+        }
+        if (message.type == MessageType.DRAW 
+                && ((WhiteboardMessage)message).mode == DrawMode.IMAGE) {
+            WhiteboardCanvas canvas = WhiteboardGUI.getInstance().getCanvas();
+            for (Pair<String, Integer> host : knownHosts) {
+                System.out.printf("Sending image to %s%n", host.Left);
+                try (Socket socket = new Socket(host.Left, Server.TCP_PORT)) {
+                    ImageIO.write(canvas.getBufferedImage(), "PNG", socket.getOutputStream());
+                } catch (IOException ex) {
+                    System.err.println("Failed to send image.");
+                }
+            }
         }
     }
     

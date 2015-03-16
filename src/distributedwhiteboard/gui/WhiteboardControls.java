@@ -2,7 +2,9 @@ package distributedwhiteboard.gui;
 
 import distributedwhiteboard.Client;
 import distributedwhiteboard.DrawMode;
+import distributedwhiteboard.Server;
 import distributedwhiteboard.WhiteboardMessage;
+import distributedwhiteboard.gui.WhiteboardMenu.SaveType;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -21,20 +23,30 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.font.TextAttribute;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.IOException;
+import java.net.Socket;
 import java.util.Map;
+import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JColorChooser;
 import javax.swing.JComboBox;
+import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JSlider;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.MatteBorder;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import say.swing.JFontChooser;
 
 /**
@@ -51,7 +63,8 @@ public final class WhiteboardControls extends JPanel
                 ItemListener,       // Listen for checkbox/ combobox changes.
                 KeyListener,        // Listen for keyboard events.
                 MouseListener,      // Listen for mouse clicks.
-                MouseMotionListener // Listen for mouse movements.
+                MouseMotionListener, // Listen for mouse movements.
+                ChangeListener
 {
     /** Serialisation ID. */
     private static final long serialVersionUID = -6184851091001506327L;
@@ -87,9 +100,12 @@ public final class WhiteboardControls extends JPanel
     // Font control buttons.
     private final JToggleButton boldButton, italicButton, underButton;
     // Labels for unlabeled controls.
-    private final JLabel modeLabel, weightLabel, borderWLabel, fontPreview;
+    private final JLabel modeLabel, weightLabel, borderWLabel, fontPreview, 
+            scaleLabel, scaleAmount;
     // Icons for the buttons in these controls.
     private final ImageIcon fontIcon, boldIcon, italicIcon, underlineIcon;
+    // Image scalinh slider.
+    private final JSlider scaleSlider;
     // </editor-fold>
     // Points for drawing lines.
     private Point lastPoint, firstPoint;
@@ -188,6 +204,12 @@ public final class WhiteboardControls extends JPanel
         this.imageTools = new JPanel(toolInnerLayout);
         this.imageTools.setBorder(toolBorder);
         
+        this.scaleLabel = new JLabel("Scale: ");
+        this.scaleAmount = new JLabel();
+        
+        this.scaleSlider = new JSlider(0, 100);
+        this.scaleSlider.setMajorTickSpacing(10);
+        
         this.imagePicker = new JButton("Pick Image");
         
         this.mode = DrawMode.LINE;
@@ -226,6 +248,9 @@ public final class WhiteboardControls extends JPanel
         borderPicker.addActionListener(this);
         borderWSelect.addItemListener(this);
         
+        scaleSlider.addChangeListener(this);
+        imagePicker.addActionListener(this);
+        
         canvas.addMouseListener(this);
         canvas.addMouseMotionListener(this);
         canvas.addKeyListener(this);
@@ -256,79 +281,20 @@ public final class WhiteboardControls extends JPanel
         shapeTools.add(borderWSelect);
         toolBox.add(shapeTools, SHAPES);
         
+        scaleSlider.setValue(100);
+        scaleAmount.setText(String.format("%1.2f", scaleSlider.getValue()/100.0f));
+        imageTools.add(scaleLabel);
+        imageTools.add(scaleSlider);
+        imageTools.add(scaleAmount);
         imageTools.add(imagePicker);
         toolBox.add(imageTools, IMAGES);
         
         this.add(toolBox);
         
-        disableFontControls();
         colPreview.setBackground(colour);
         bPreview.setBackground(borderColour);
         fontPicker.setFont(font);
-        enableDrawControls();
         toolLayout.show(toolBox, LINES);
-    }
-    
-    /**
-     * Display the text editing controls.
-     * 
-     * @since 1.0
-     */
-    private void enableFontControls()
-    {
-        Map attribs = font.getAttributes();
-        Object underline = attribs.get(TextAttribute.UNDERLINE);
-        underButton.setSelected(underline != null);
-        boldButton.setSelected(font.isBold());
-        italicButton.setSelected(font.isItalic());
-        Component[] fontControls = fontTools.getComponents();
-        for (Component com : fontControls) {
-            com.setEnabled(true);
-        }
-    }
-    
-    /**
-     * Hide the text editing controls.
-     * 
-     * @since 1.0
-     */
-    private void disableFontControls()
-    {
-        boldButton.setSelected(false);
-        italicButton.setSelected(false);
-        Component[] fontControls = fontTools.getComponents();
-        for (Component com : fontControls) {
-            com.setEnabled(false);
-        }
-    }
-    
-    /**
-     * Enable the shape editing and drawing tools.
-     * 
-     * @since 1.1
-     */
-    private void enableDrawControls()
-    {
-        Component[] drawControls = lineTools.getComponents();
-        for (Component com : drawControls) {
-            com.setEnabled(true);
-        }
-        borderPicker.setEnabled(borderShape);
-        borderWSelect.setEnabled(borderShape);
-        borderWLabel.setEnabled(borderShape);
-    }
-    
-    /**
-     * Disable the shape editing and drawing tools.
-     * 
-     * @since 1.0
-     */
-    private void disableDrawControls()
-    {
-        Component[] drawControls = lineTools.getComponents();
-        for (Component com : drawControls) {
-            com.setEnabled(false);
-        }
     }
     
     /**
@@ -411,6 +377,16 @@ public final class WhiteboardControls extends JPanel
             Client.getInstance().broadCastMessage(msg);
         }
     }
+    
+    private void drawImage()
+    {
+        if (lastPoint != null && image != null) {
+            int scale = scaleSlider.getValue();
+            WhiteboardMessage msg = new WhiteboardMessage(lastPoint, scale);
+            canvas.drawImage(lastPoint, image, scale/100.f);
+            Client.getInstance().broadCastMessage(msg);
+        }
+    }
         
     /**
      * Displays the font choosing dialog. Sets the font to use when drawing 
@@ -472,7 +448,44 @@ public final class WhiteboardControls extends JPanel
      */
     private BufferedImage showImagePicker()
     {
-        return null;
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileFilter()
+        {
+            @Override
+            public boolean accept(File f)
+            {
+                if (f.isDirectory()) return true;
+                String extension = f.getName().toLowerCase();
+                for (SaveType type : SaveType.values()) {
+                    if (extension.endsWith(type.name().toLowerCase()))
+                        return true;
+                }
+                
+                return false;
+            }
+
+            @Override
+            public String getDescription()
+            {
+                return "Images";
+            }
+        });
+        
+        int result = fileChooser.showDialog(this, "Select Image");
+        
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File f = fileChooser.getSelectedFile();
+            
+            if (f == null) return image;
+            try {
+                return ImageIO.read(f);
+            } catch (IOException ex) {
+                System.err.println("Failed to open image.");
+                System.err.println(ex.getMessage());
+            }
+        }
+        return image;
     }
     
     /**
@@ -521,6 +534,11 @@ public final class WhiteboardControls extends JPanel
         fontPreview.setFont(font);
     }
     
+    /**
+     * Toggles the state of font underlining for the current {@link Font}.
+     * 
+     * @since 1.1
+     */
     private void toggleUnderline()
     {
         Map attribs = font.getAttributes();
@@ -556,6 +574,8 @@ public final class WhiteboardControls extends JPanel
             bPreview.setBackground(borderColour);
         } else if (source == fontPicker)
             font = showFontChooser();
+        else if (source == imagePicker)
+            image = showImagePicker();
         else if (source == boldButton)
             toggleBold();
         else if (source == italicButton)
@@ -582,19 +602,16 @@ public final class WhiteboardControls extends JPanel
             case LINE:
             case POLYGON:
             case FREEFORM_LINE:
-                enableDrawControls();
-                disableFontControls();
                 toolLayout.show(toolBox, LINES);
                 break;
             case RECTANGLE:
-                enableDrawControls();
-                disableFontControls();
                 toolLayout.show(toolBox, SHAPES);
                 break;
             case TEXT:
-                enableFontControls();
-                disableDrawControls();
                 toolLayout.show(toolBox, TEXT);
+                break;
+            case IMAGE:
+                toolLayout.show(toolBox, IMAGES);
                 break;
             default:
                 System.err.println("Unknown drawing mode!");
@@ -717,6 +734,10 @@ public final class WhiteboardControls extends JPanel
             case TEXT:
                 lastPoint = newPoint;
                 break;
+            case IMAGE:
+                lastPoint = newPoint;
+                drawImage();
+                break;
             default:
                 System.err.printf("Drawing mode '%s' not implemented.\n", mode);
         }
@@ -776,4 +797,13 @@ public final class WhiteboardControls extends JPanel
     @Override
     public void mouseMoved(MouseEvent e) { }
     // </editor-fold>
+
+    @Override
+    public void stateChanged(ChangeEvent e)
+    {
+        Object source = e.getSource();
+        if (source == scaleSlider) {
+            scaleAmount.setText(String.format("%1.2f", scaleSlider.getValue()/100.0f));
+        }
+    }
 }

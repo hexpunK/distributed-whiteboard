@@ -12,8 +12,11 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.RenderingHints.Key;
 import java.awt.Shape;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
+import java.awt.image.BufferedImageOp;
 import java.awt.image.Raster;
+import java.awt.image.RescaleOp;
 import java.util.HashMap;
 import java.util.Map;
 import javax.swing.JPanel;
@@ -214,17 +217,26 @@ public class WhiteboardCanvas extends JPanel
     
     /**
      * Draws an image to this {@link WhiteboardCanvas}. The image can be sent 
-     * over the network, or just provided locally. As it is a {@link Raster}, 
-     * the size and position are not needed, this data is contained within the 
-     * object.
+     * over the network, or just provided locally.
      * 
-     * @param image The image to render as a {@link Raster} object.
+     * @param origin The {@link Point} to render the image from.
+     * @param img The image to render as a {@link BufferedImage} object.
+     * @param scale The scale of the image relative to its original size as a 
+     * float. This is clamped from 0.1 to 1.0.
      * @since 1.3
      */
-    public void drawImage(Raster image)
+    public void drawImage(Point origin, BufferedImage img, float scale)
     {
-        if (image == null) return;
-        canvas.setData(image);
+        if (img == null || scale <= 0.0f) return;
+        // Clamp the value.
+        scale = Float.max(0.1f, scale);
+        scale = Float.min(1.0f, scale);
+        // Scale the width and height.
+        int w = (int)(img.getWidth()*scale);
+        int h = (int)(img.getHeight()*scale);
+        // Draw the image.
+        Graphics2D g = (Graphics2D)canvas.createGraphics();
+        g.drawImage(img, origin.x, origin.y, w, h, null);
         this.repaint();
     }
 
