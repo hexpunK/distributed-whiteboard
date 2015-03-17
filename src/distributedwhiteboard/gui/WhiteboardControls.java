@@ -2,6 +2,7 @@ package distributedwhiteboard.gui;
 
 import distributedwhiteboard.Client;
 import distributedwhiteboard.DrawMode;
+import distributedwhiteboard.Pair;
 import distributedwhiteboard.Server;
 import distributedwhiteboard.WhiteboardMessage;
 import distributedwhiteboard.gui.WhiteboardMenu.SaveType;
@@ -28,6 +29,7 @@ import java.io.FileFilter;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.Map;
+import java.util.Set;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -385,6 +387,11 @@ public final class WhiteboardControls extends JPanel
             WhiteboardMessage msg = new WhiteboardMessage(lastPoint, scale);
             canvas.drawImage(lastPoint, image, scale/100.f);
             Client.getInstance().broadCastMessage(msg);
+            Set<Pair<String, Integer>> hosts = Client.getInstance().getKnownHosts();
+            System.out.printf("Sending image to %d hosts %n", hosts.size());
+            for (Pair<String, Integer> host : hosts) {
+                Client.sendImage(image, host);
+            }
         }
     }
         

@@ -5,6 +5,7 @@ import distributedwhiteboard.DiscoveryMessage.DiscoveryResponse;
 import distributedwhiteboard.DiscoveryMessage.JoinRequest;
 import distributedwhiteboard.gui.WhiteboardCanvas;
 import distributedwhiteboard.gui.WhiteboardGUI;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -156,6 +157,8 @@ public class Client implements Runnable
         return false;
     }
     
+    public Set<Pair<String, Integer>> getKnownHosts() { return knownHosts; }
+    
     /**
      * Checks to see if this {@link Client} is able to send network messages or 
      * not.
@@ -234,6 +237,34 @@ public class Client implements Runnable
             if (host.equals(thisHost)) continue; // Don't message yourself.            
             sendMessage(message, host.Left, host.Right);
         }
+    }
+    
+    /**
+     * Sends a specified {@link BufferedImage} over TCP to the specified host.
+     * The host is a {@link Pair} containing the IP address/ host name in the 
+     * left value, and the port number in the right value.
+     * 
+     * @param image
+     * @param host 
+     */
+    public static void sendImage(final BufferedImage image, 
+            final Pair<String, Integer> host)
+    {
+        new Thread(new Runnable() {
+            @Override
+            public void run()
+            {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException ex) {}
+                try (Socket sender = new Socket(host.Left, Server.TCP_PORT)) {
+                    ImageIO.write(image, "PNG", sender.getOutputStream());
+                } catch (IOException ex) {
+                    System.err.printf("Error sending image to host %s:%d%n%s%n", 
+                            host.Left, host.Right, ex.getMessage());
+                }
+            }
+        }).start();
     }
     
     /**

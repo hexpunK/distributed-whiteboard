@@ -274,34 +274,6 @@ public class Server implements Runnable
     }
     
     /**
-     * Sends a specified {@link BufferedImage} over TCP to the specified host.
-     * The host is a {@link Pair} containing the IP address/ host name in the 
-     * left value, and the port number in the right value.
-     * 
-     * @param image
-     * @param host 
-     */
-    private void sendImage(final BufferedImage image, 
-            final Pair<String, Integer> host)
-    {
-        new Thread(new Runnable() {
-            @Override
-            public void run()
-            {
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException ex) {}
-                try (Socket sender = new Socket(host.Left, host.Right)) {
-                    ImageIO.write(image, "PNG", sender.getOutputStream());
-                } catch (IOException ex) {
-                    serverError("Error sending image to host %s:%d%n%s%n", 
-                            host.Left, host.Right, ex.getMessage());
-                }
-            }
-        }).start();
-    }
-    
-    /**
      * Receives an image sent to this instance of the Distributed Whiteboard by 
      * setting up a TCP connection. This connection uses the port specified in
      * TCP_PORT, so no other instances of the application should use this port.
@@ -389,7 +361,7 @@ public class Server implements Runnable
         serverMessage("Sending canvas to host %s:%d.", msg.IP, msg.Port);
         final BufferedImage canvas = 
                 WhiteboardGUI.getInstance().getCanvas().getBufferedImage();
-        sendImage(canvas, new Pair<>(msg.IP, msg.Port));
+        Client.sendImage(canvas, new Pair<>(msg.IP, msg.Port));
     }
     
     /**
