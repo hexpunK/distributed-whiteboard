@@ -83,7 +83,8 @@ public abstract class NetMessage
      * to be ordered correctly. This is a {@link String} representation of a 
      * Java {@link UUID}.
      * 
-     * @return The unique ID of a required message as a String.
+     * @return The unique ID of a required message as a String. If no required 
+     * ID exists, this will return null;
      * @since 1.1
      */
     public String getRequiredID() { return requiredID.toString(); }
@@ -91,7 +92,8 @@ public abstract class NetMessage
     /**
      * Sets the unique ID for a required message for this {@link NetMessage}. 
      * The {@link String} provided must be in the Java {@link UUID} format as 
-     * specified in the documentation for {@link UUID#toString()}.
+     * specified in the documentation for {@link UUID#toString()}. If an null 
+     * or empty String is provided, the required ID will be null.
      * 
      * @param id 
      */
