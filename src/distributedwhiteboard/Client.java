@@ -108,12 +108,13 @@ public class Client implements Runnable
      */
     public void stopClient()
     {
-        isSending = false;
+        // Inform the other nodes that this client is disconnecting.
         if (thisHost != null) {
             String ip = thisHost.Left;
             int port = thisHost.Right;
             broadCastMessage(new LeaveRequest(thisName, ip, port));
         }
+        isSending = false; // Stop sending out updates.
         try {
             if (multicast != null && receiver != null && !receiver.isClosed()) {
                 System.out.println("Stopping network discovery.");
@@ -125,9 +126,10 @@ public class Client implements Runnable
         } catch (IOException ex) {
             System.err.println("Failed to leave multicast group");
             System.err.println(ex.getMessage());
-        } catch (InterruptedException ex) {
-            
-        }
+            return;
+        } catch (InterruptedException ex) { }
+        knownHosts.clear();
+        WhiteboardGUI.getInstance().updateClientList();
     }
     
     /**

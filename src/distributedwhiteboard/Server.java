@@ -379,7 +379,6 @@ public class Server implements Runnable
         BufferedImage canvas = 
                 WhiteboardGUI.getInstance().getCanvas().getBufferedImage();
         Client.sendImage(canvas, new Pair<>(msg.IP, msg.Port));
-        WhiteboardGUI.getInstance().updateClientList();
     }
     
     /**
@@ -398,7 +397,6 @@ public class Server implements Runnable
             return;
         }
         client.removeHost(new Triple<>(msg.Name, msg.IP, msg.Port));
-        WhiteboardGUI.getInstance().updateClientList();
     }
     
     /**

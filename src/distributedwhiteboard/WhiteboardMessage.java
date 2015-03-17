@@ -22,46 +22,46 @@ public class WhiteboardMessage extends NetMessage implements Serializable
     private static final long serialVersionUID = 5459762541371665893L;
     // <editor-fold defaultstate="collapsed" desc="Message sizes.">
     /** The size of a encoded {@link Point} object. */
-    protected static final byte POINT_SIZE = 8;
+    protected static final int POINT_SIZE = 8;
     /** The size of a encoded {@link Color} object. */
-    protected static final byte COLOUR_SIZE = 6;
+    protected static final int COLOUR_SIZE = 6;
     /** The maximum size a {@link Font} name can be. */
-    protected static final byte FONT_NAME_SIZE = 30;
+    protected static final int FONT_NAME_SIZE = 30;
     /** The size of a {@link Font} style once encoded. */
-    protected static final byte FONT_STY_SZ = 1;
+    protected static final int FONT_STY_SZ = 1;
     /** The total size of an encoded {@link Font} object. */
-    protected static final byte FONT_SIZE = FONT_NAME_SIZE+FONT_STY_SZ+3;
+    protected static final int FONT_SIZE = FONT_NAME_SIZE+FONT_STY_SZ+3;
     
     /** The byte offset for the first {@link Point} object. */
-    protected static final byte POINT_ONE_OFFSET = 2;
+    protected static final int POINT_ONE_OFFSET = TYPE_OFFSET+2;
     /** The byte offset for the second {@link Point}, this is optional. */
-    protected static final byte POINT_TWO_OFFSET = POINT_ONE_OFFSET+POINT_SIZE;
+    protected static final int POINT_TWO_OFFSET = POINT_ONE_OFFSET+POINT_SIZE;
     /** The offset for the {@link Color} object used by shapes. */
-    protected static final byte COLOUR_OFFSET = POINT_TWO_OFFSET+POINT_SIZE;
+    protected static final int COLOUR_OFFSET = POINT_TWO_OFFSET+POINT_SIZE;
     /** The byte offset of the line weight mode. */
-    protected static final byte WEIGHT_OFFSET = COLOUR_OFFSET+COLOUR_SIZE;
+    protected static final int WEIGHT_OFFSET = COLOUR_OFFSET+COLOUR_SIZE;
     
     /** The byte offset of the {@link Color} object used by text. */
-    protected static final byte FONT_COL_OFFSET = POINT_TWO_OFFSET;
+    protected static final int FONT_COL_OFFSET = POINT_TWO_OFFSET;
     /** The byte offset of the text character position. */
-    protected static final byte TEXT_OFFSET = FONT_COL_OFFSET+COLOUR_SIZE;
+    protected static final int TEXT_OFFSET = FONT_COL_OFFSET+COLOUR_SIZE;
     /** The byte offset for the {@link Font} object. */
-    protected static final byte FONT_OFFSET = TEXT_OFFSET+1;
+    protected static final int FONT_OFFSET = TEXT_OFFSET+1;
     /** The index in a string where the {@link Font} style begins.*/
-    protected static final byte FONT_STY_OFFSET = FONT_NAME_SIZE;
+    protected static final int FONT_STY_OFFSET = FONT_NAME_SIZE;
     /** The index in a string where the {@link Font} underline attribute is. */
-    protected static final byte FONT_UNDER_OFFSET = FONT_STY_OFFSET+FONT_STY_SZ;
+    protected static final int FONT_UNDER_OFFSET = FONT_STY_OFFSET+FONT_STY_SZ;
     /** The index in a string where the {@link Font} size begins.*/
-    protected static final byte FONT_SIZE_OFFSET = FONT_UNDER_OFFSET+1;
+    protected static final int FONT_SIZE_OFFSET = FONT_UNDER_OFFSET+1;
     
     /** The byte offset for the shape fill boolean. */
-    protected static final byte FILL_OFFSET = COLOUR_OFFSET+COLOUR_SIZE;
+    protected static final int FILL_OFFSET = COLOUR_OFFSET+COLOUR_SIZE;
     /** The byte offset for the shape border boolean. */
-    protected static final byte BORDER_OFFSET = FILL_OFFSET+1;
+    protected static final int BORDER_OFFSET = FILL_OFFSET+1;
     /** The byte offset for the {@link Color} object used by borders. */
-    protected static final byte BORDER_COL_OFFSET = BORDER_OFFSET+1;
+    protected static final int BORDER_COL_OFFSET = BORDER_OFFSET+1;
     /** The byte offset for the border weight mode. */
-    protected static final byte BORDER_W_OFFSET = BORDER_COL_OFFSET+COLOUR_SIZE;
+    protected static final int BORDER_W_OFFSET = BORDER_COL_OFFSET+COLOUR_SIZE;
     // </editor-fold>
     
     /** The {@link DrawMode} for this message if it's a drawing message. */
@@ -271,7 +271,10 @@ public class WhiteboardMessage extends NetMessage implements Serializable
     public static WhiteboardMessage decode(byte[] message)
     {
         String messageStr = new String(message).trim();
-        DrawMode m = DrawMode.parseChar(messageStr.charAt(1));
+        String uID = messageStr.substring(ID_OFFSET, RELY_OFFSET);
+        String rID = messageStr.substring(RELY_OFFSET, TYPE_OFFSET);
+        DrawMode m = DrawMode.parseChar(messageStr.charAt(TYPE_OFFSET+1));
+        WhiteboardMessage msg;
         
         Point p1 = stringToPoint(messageStr.substring(POINT_ONE_OFFSET, 
                 POINT_TWO_OFFSET));
@@ -294,7 +297,10 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                         || weight < 1)
                     return null;
                 
-                return new WhiteboardMessage(p1, p2, col, weight);
+                msg = new WhiteboardMessage(p1, p2, col, weight);
+                msg.setUniqueID(uID);
+                msg.setRequiredID(rID);
+                return msg;
             case RECTANGLE:
                 p2 = stringToPoint(messageStr.substring(POINT_TWO_OFFSET, 
                         COLOUR_OFFSET));
@@ -317,8 +323,11 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                         || borderCol == null || weight < 1)
                     return null;
                 
-                return new WhiteboardMessage(p1, p2, col, weight, fill, 
+                msg = new WhiteboardMessage(p1, p2, col, weight, fill, 
                         border, borderCol);
+                msg.setUniqueID(uID);
+                msg.setRequiredID(rID);
+                return msg;
             case TEXT:
                 col = stringToColor(messageStr.substring(FONT_COL_OFFSET, 
                         TEXT_OFFSET));
@@ -329,7 +338,10 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                 if (m == null || p1 == null || font == null)
                     return null;
                 
-                return new WhiteboardMessage(p1, col, font, text);
+                msg = new WhiteboardMessage(p1, col, font, text);
+                msg.setUniqueID(uID);
+                msg.setRequiredID(rID);
+                return msg;
             case IMAGE:
                 String scl = messageStr.substring(POINT_TWO_OFFSET);
                 
@@ -342,8 +354,10 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                     return null;
                 }
                 
-                return new WhiteboardMessage(p1, scaling);
-                
+                msg = new WhiteboardMessage(p1, scaling);
+                msg.setUniqueID(uID);
+                msg.setRequiredID(rID);
+                return msg;                
         }
         
         return null;
@@ -526,7 +540,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
     {
         StringBuilder sb = new StringBuilder();
         
-        sb.append(type.type);
+        sb.append(super.toString());
         sb.append(mode.mode);
         sb.append(pointToString(startPoint));
         switch (mode) {

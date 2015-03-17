@@ -14,18 +14,18 @@ package distributedwhiteboard;
 public abstract class DiscoveryMessage extends NetMessage
 {
     /** The number of characters in an encoded IP address. */
-    private static final byte IP_SIZE = 12;
+    private static final int IP_SIZE = 12;
     /** The number of characters in an encoded port. */
-    private static final byte PORT_SIZE = 5;
+    private static final int PORT_SIZE = 5;
     
-    private static final byte NAME_SIZE = 20;
+    private static final int NAME_SIZE = 20;
     
     /** The character offset in the message for the start of the IP address. */
-    private static final byte IP_OFFSET = 1;
+    private static final int IP_OFFSET = TYPE_OFFSET+1;
     /** The character offset in the message for the start of the port number. */
-    private static final byte PORT_OFFSET = IP_OFFSET+IP_SIZE;
+    private static final int PORT_OFFSET = IP_OFFSET+IP_SIZE;
     
-    private static final byte NAME_OFFSET = PORT_OFFSET+PORT_SIZE;
+    private static final int NAME_OFFSET = PORT_OFFSET+PORT_SIZE;
     
     public final String Name;
     /** The IP address for the source of this {@link DiscoveryMessage}. */
@@ -93,7 +93,9 @@ public abstract class DiscoveryMessage extends NetMessage
     {
         String messageStr = new String(buffer).trim();
         
-        MessageType type = MessageType.parseChar(messageStr.charAt(0));
+        String uID = messageStr.substring(ID_OFFSET, RELY_OFFSET);
+        String rID = messageStr.substring(RELY_OFFSET, TYPE_OFFSET);
+        MessageType type = MessageType.parseChar(messageStr.charAt(TYPE_OFFSET));
         String ipStr = messageStr.substring(IP_OFFSET, PORT_OFFSET);
         String portStr = messageStr.substring(PORT_OFFSET, NAME_OFFSET);
         int port;
@@ -115,18 +117,24 @@ public abstract class DiscoveryMessage extends NetMessage
         String nStr = messageStr.substring(NAME_OFFSET);
         nStr = nStr.trim();
         
+        DiscoveryMessage msg = null;
         if (type == MessageType.DISCOVERY)
-            return new DiscoveryRequest(nStr, ipStr, port);
+            msg = new DiscoveryRequest(nStr, ipStr, port);
         else if (type == MessageType.RESPONSE)
-            return new DiscoveryResponse(nStr, ipStr, port);
+            msg = new DiscoveryResponse(nStr, ipStr, port);
         else if (type == MessageType.JOIN)
-            return new JoinRequest(nStr, ipStr, port);
+            msg = new JoinRequest(nStr, ipStr, port);
         else if (type == MessageType.LEAVE)
-            return new LeaveRequest(nStr, ipStr, port);
-        else {
-            System.err.println("Invalid message type.");
-            return null;
+            msg = new LeaveRequest(nStr, ipStr, port);
+        
+        if (msg != null) {
+            msg.setUniqueID(uID);
+            msg.setRequiredID(rID);
+            return msg;
         }
+        
+        System.err.println("Invalid message type.");
+        return null;
     }
     
     /**
@@ -206,7 +214,7 @@ public abstract class DiscoveryMessage extends NetMessage
     public String toString()
     {
         StringBuilder sb = new StringBuilder();
-        sb.append(type.type);
+        sb.append(super.toString());
         
         String ipStr = DiscoveryMessage.ipToString(IP);
         String portStr = String.format("%05d", Port);

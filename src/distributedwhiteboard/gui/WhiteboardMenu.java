@@ -24,8 +24,8 @@ import javax.swing.filechooser.FileNameExtensionFilter;
  * extra buttons are needed.
  * 
  * @author 6266215
- * @version 1.0
- * @since 2015-03-12
+ * @version 1.1
+ * @since 2015-03-17
  */
 public final class WhiteboardMenu extends JMenuBar implements ActionListener
 {
@@ -196,6 +196,13 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         ((WhiteboardGUI)parent).saveCanvas(file, type);
     }
     
+    /**
+     * Updates the list of clients connected to this network. Adds a new menu 
+     * item to the "Clients" menu for each name provided.
+     * 
+     * @param names A {@link String} array of the client names known.
+     * @since 1.1
+     */
     public void setClientList(String[] names)
     {
         clientsMenu.removeAll();

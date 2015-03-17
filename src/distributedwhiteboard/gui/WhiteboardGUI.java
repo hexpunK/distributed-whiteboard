@@ -26,7 +26,7 @@ import javax.swing.UnsupportedLookAndFeelException;
  * other networked users.
  * 
  * @author 6266215
- * @version 1.1
+ * @version 1.2
  * @since 2015-03-17
  */
 public class WhiteboardGUI extends JFrame implements Runnable 
@@ -226,7 +226,8 @@ public class WhiteboardGUI extends JFrame implements Runnable
     public WhiteboardCanvas getCanvas() { return this.canvas; }
     
     /**
-     * Updates the list of clients shown in the drop down menu.
+     * Updates the list of clients shown in the drop down menu. This will grab 
+     * a list of known clients from the {@link Client} class.
      * 
      * @since 1.2
      */
