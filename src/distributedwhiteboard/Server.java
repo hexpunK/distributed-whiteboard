@@ -14,6 +14,7 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import javax.imageio.ImageIO;
 
@@ -34,7 +35,8 @@ public class Server implements Runnable
             = new WhiteboardMessage().encode().length;
     /** A reserved port to listen for TCP packets on. */
     public static final int TCP_PORT = 55558;
-    public static final int TCP_TIMEOUT = 5000;
+    /** A timeout time for sending data over TCP. */
+    public static final int TCP_TIMEOUT = 10000;
     /** A reserved port to listen for multicast packets on. */
     public static final int MULTICAST_PORT = 55559;
     /** A UDP {@link DatagramSocket} to listen for connections on. */
@@ -262,6 +264,7 @@ public class Server implements Runnable
                         msg.drawColour);
                 break;
             case IMAGE:
+                serverMessage("Preparing to receive image.");
                 BufferedImage i = receiveImage();
                 canvas.drawImage(new Point(), i, msg.imageScale);
                 break;
@@ -319,8 +322,9 @@ public class Server implements Runnable
         }
         
         try (Socket sock = tcpServer.accept()) {
+            serverMessage("Received socket connection.");
             return ImageIO.read(sock.getInputStream());
-        } catch (SocketException sEx) {
+        } catch (SocketTimeoutException sEx) {
             serverError("Socket timed out receiving image.");
         } catch (IOException ex) {
             serverError("Error receiving image.%n%s", ex.getMessage());
@@ -358,11 +362,12 @@ public class Server implements Runnable
         Pair<String, Integer> host = new Pair<>(newIP, newPort);
         
         client.addKnownHost(host);
-        serverMessage("Receiving canvas from host %s:%d.", msg.IP, msg.Port);
+        serverMessage("Requesting canvas from host %s:%d.", msg.IP, msg.Port);
         DiscoveryMessage.JoinRequest join = new DiscoveryMessage.JoinRequest(hostName, TCP_PORT);
         client.sendMessage(join, host.Left, host.Right);
             
         BufferedImage image = receiveImage();
+        serverMessage("Received canvas from host %s:%d.", msg.IP, msg.Port);
         WhiteboardGUI.getInstance().getCanvas().drawImage(new Point(), image, 1.0f);
     }
     
@@ -459,6 +464,7 @@ public class Server implements Runnable
                         handleWhiteboardMessage(WhiteboardMessage.decodeMessage(buffer));
                         break;
                     case JOIN:
+                        serverMessage("Received join request");
                         handeJoinRequest(DiscoveryResponse.decode(buffer));
                         break;
                     case RESPONSE:
