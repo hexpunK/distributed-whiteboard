@@ -95,8 +95,8 @@ public class WhiteboardMessage extends NetMessage implements Serializable
     public final Font font;
     /** The character to draw. */
     public final char textChar;
-    
-    public final int imageScale;
+    /** The scale of the image as a multiplier. Clamped between 0.0  and 1.0. */
+    public final float imageScale;
     
     /**
      * Creates a {@link WhiteboardMessage} with no contents, this is usually 
@@ -232,7 +232,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         this.borderCol = Color.LIGHT_GRAY;
         this.font = new Font("Serif", Font.PLAIN, 12);
         this.textChar = '\0';
-        this.imageScale = scale;
+        this.imageScale = scale/100.0f;
     }
         
     /**
@@ -551,7 +551,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                 sb.append(fontToString(font));
                 break;
             case IMAGE:
-                sb.append(String.format("%03d", imageScale));
+                sb.append(String.format("%03d", (int)(imageScale*100)));
         }
         
         return sb.toString();

@@ -266,7 +266,7 @@ public class Server implements Runnable
             case IMAGE:
                 serverMessage("Preparing to receive image.");
                 BufferedImage i = receiveImage();
-                canvas.drawImage(new Point(), i, msg.imageScale);
+                canvas.drawImage(msg.startPoint, i, msg.imageScale);
                 break;
             default:
                 serverError("Unknown drawmode.");
