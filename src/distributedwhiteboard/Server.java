@@ -34,6 +34,7 @@ public class Server implements Runnable
             = new WhiteboardMessage().encode().length;
     /** A reserved port to listen for TCP packets on. */
     public static final int TCP_PORT = 55558;
+    public static final int TCP_TIMEOUT = 5000;
     /** A reserved port to listen for multicast packets on. */
     public static final int MULTICAST_PORT = 55559;
     /** A UDP {@link DatagramSocket} to listen for connections on. */
@@ -277,14 +278,24 @@ public class Server implements Runnable
      * @param image
      * @param host 
      */
-    private void sendImage(BufferedImage image, Pair<String, Integer> host)
+    private void sendImage(final BufferedImage image, 
+            final Pair<String, Integer> host)
     {
-        try (Socket sender = new Socket(host.Left, host.Right)) {
-            ImageIO.write(image, "PNG", sender.getOutputStream());
-        } catch (IOException ex) {
-            serverError("Error sending image to host %s:%d%n%s%n", 
-                    host.Left, host.Right, ex.getMessage());
-        }
+        new Thread(new Runnable() {
+            @Override
+            public void run()
+            {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException ex) {}
+                try (Socket sender = new Socket(host.Left, host.Right)) {
+                    ImageIO.write(image, "PNG", sender.getOutputStream());
+                } catch (IOException ex) {
+                    serverError("Error sending image to host %s:%d%n%s%n", 
+                            host.Left, host.Right, ex.getMessage());
+                }
+            }
+        }).start();
     }
     
     /**
@@ -301,16 +312,14 @@ public class Server implements Runnable
     {   
         try {
             tcpServer = new ServerSocket(TCP_PORT);
-            tcpServer.setSoTimeout(3000);
+            tcpServer.setSoTimeout(TCP_TIMEOUT);
         } catch (IOException ex) {
             serverError("Couldn't set up TCP server.%n%s", ex.getMessage());
             return null;
         }
         
         try (Socket sock = tcpServer.accept()) {
-            sock.setSoTimeout(3000);
-            BufferedImage img = ImageIO.read(sock.getInputStream());
-            return img;
+            return ImageIO.read(sock.getInputStream());
         } catch (SocketException sEx) {
             serverError("Socket timed out receiving image.");
         } catch (IOException ex) {
@@ -375,16 +384,7 @@ public class Server implements Runnable
         serverMessage("Sending canvas to host %s:%d.", msg.IP, msg.Port);
         final BufferedImage canvas = 
                 WhiteboardGUI.getInstance().getCanvas().getBufferedImage();
-        new Thread(new Runnable() {
-            @Override
-            public void run()
-            {
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException ex) {}
-                sendImage(canvas,  new Pair<>(msg.IP, msg.Port));
-            }
-        }).start();
+        sendImage(canvas, new Pair<>(msg.IP, msg.Port));
     }
     
     /**
