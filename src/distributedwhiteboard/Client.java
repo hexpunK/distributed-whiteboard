@@ -2,7 +2,7 @@ package distributedwhiteboard;
 
 import distributedwhiteboard.DiscoveryMessage.DiscoveryRequest;
 import distributedwhiteboard.DiscoveryMessage.DiscoveryResponse;
-import distributedwhiteboard.DiscoveryMessage.JoinRequest;
+import distributedwhiteboard.DiscoveryMessage.LeaveRequest;
 import distributedwhiteboard.gui.WhiteboardCanvas;
 import distributedwhiteboard.gui.WhiteboardGUI;
 import java.awt.image.BufferedImage;
@@ -15,7 +15,6 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.HashSet;
-import java.util.Random;
 import java.util.Set;
 import javax.imageio.ImageIO;
 
@@ -25,8 +24,8 @@ import javax.imageio.ImageIO;
  *  a peer-to-peer network to communicate over.
  * 
  * @author 6266215
- * @version 1.3
- * @since 2015-03-15
+ * @version 1.4
+ * @since 2015-03-17
  */
 public class Client implements Runnable
 {
@@ -35,7 +34,9 @@ public class Client implements Runnable
     /** The maximum size of the byte buffer for multicast packets. */
     private static final int BUFFER_SIZE = DiscoveryRequest.getLargestSize();
     /** A list of known hosts to send drawing updates to. */
-    private final Set<Pair<String, Integer>> knownHosts;
+    private final Set<Triple<String, String, Integer>> knownHosts;
+    /** The client name for this instance of the program as a String. */
+    private String thisName;
     /** The details of this host, to stop the client from talking to itself. */
     private Pair<String, Integer> thisHost;
     /** The details for the multicast group this {@link Client} uses. */
@@ -64,6 +65,7 @@ public class Client implements Runnable
             addr = null;
         }
         this.multicast = new Pair<>(addr, Server.MULTICAST_PORT);
+        this.thisName = "UNNAMED";
     }
     
     /**
@@ -91,6 +93,7 @@ public class Client implements Runnable
     {
         if (isEnabled()) return; // Already started.
         discoveryThread = new Thread(this);
+        discoveryThread.setName("Multicast listener");
         discoveryThread.start();
         
         while (!isSending) {}
@@ -106,9 +109,14 @@ public class Client implements Runnable
     public void stopClient()
     {
         isSending = false;
+        if (thisHost != null) {
+            String ip = thisHost.Left;
+            int port = thisHost.Right;
+            broadCastMessage(new LeaveRequest(thisName, ip, port));
+        }
         try {
-            System.out.println("Stopping network discovery.");
             if (multicast != null && receiver != null && !receiver.isClosed()) {
+                System.out.println("Stopping network discovery.");
                 receiver.leaveGroup(multicast.Left);
                 receiver.close();
             }
@@ -143,21 +151,69 @@ public class Client implements Runnable
      * @return Returns true if the host was added. Returns false if the host 
      * was already known or if the host is this host.
      */
-    public synchronized boolean addKnownHost(Pair<String, Integer> host)
+    public synchronized boolean addHost(Triple<String, String, Integer> host)
     {
-        if (host.equals(thisHost)) 
+        Pair<String, Integer> hostpair = new Pair<>(host.Two, host.Three);
+        if (hostpair.equals(thisHost)) 
             return false;
         
         if (knownHosts.add(host)) {
-            System.out.printf("Added new host %s:%d%n", host.Left, host.Right);
+            System.out.printf("Added new host %s:%d%n", host.Two, host.Three);
+            WhiteboardGUI.getInstance().updateClientList();
             return true;
         }
         
-        System.out.printf("Host %s:%d already known.%n", host.Left, host.Right);
+        System.out.printf("Host %s:%d already known.%n", host.Two, host.Three);
         return false;
     }
     
-    public Set<Pair<String, Integer>> getKnownHosts() { return knownHosts; }
+    /**
+     * Removes the specified host from the list of hosts known to this client 
+     * component of the Distributed Whiteboard.
+     * 
+     * @param host The host as a {@link Pair} containing the IP address as a 
+     * {@link String} and the port as an {@link Integer}.
+     * @since 1.4
+     */
+    public synchronized void removeHost(Triple<String, String, Integer> host)
+    {
+        for (Triple<String, String, Integer> h : knownHosts) {
+            if (h.Two.equals(host.Two) && h.Three.equals(host.Three)) {
+                knownHosts.remove(host);
+                WhiteboardGUI.getInstance().updateClientList();
+            }
+        }
+    }
+    
+    /**
+     * Gets a {@link Set} of all the hosts known to this client component of 
+     * the Distributed Whiteboard.
+     * 
+     * @return A {@link Set} containing {@link Pair}s of a {@link String} and a
+     * {@link Integer}.
+     * @since 1.4
+     */
+    public Set<Triple<String, String, Integer>> getKnownHosts() 
+    { 
+        return knownHosts; 
+    }
+    
+    /**
+     * Gets the name the client has set for use with this instance of the 
+     * program.
+     * 
+     * @return The client name as a String.
+     * @since 1.4
+     */
+    public String getClientName() { return thisName; }
+    
+    /**
+     * Sets the name this client will identify itself to others with.
+     * 
+     * @param name The name to use as a String.
+     * @since 1.4
+     */
+    public void setClientName(String name) { thisName = name; }
     
     /**
      * Checks to see if this {@link Client} is able to send network messages or 
@@ -233,19 +289,22 @@ public class Client implements Runnable
      */
     public synchronized void broadCastMessage(NetMessage message)
     {
-        for (Pair<String, Integer> host : knownHosts) {
-            if (host.equals(thisHost)) continue; // Don't message yourself.            
-            sendMessage(message, host.Left, host.Right);
+        for (Triple<String, String, Integer> host : knownHosts) {
+            Pair<String, Integer> hostpair = new Pair<>(host.Two, host.Three);
+            if (hostpair.equals(thisHost)) continue; // Don't message yourself.            
+            sendMessage(message, host.Two, host.Three);
         }
     }
     
     /**
      * Sends a specified {@link BufferedImage} over TCP to the specified host.
      * The host is a {@link Pair} containing the IP address/ host name in the 
-     * left value, and the port number in the right value.
+     * left type, and the port number in the right type.
      * 
-     * @param image
-     * @param host 
+     * @param image The {@link BufferedImage} to send to the specified host.
+     * @param host The host to send to as a {@link Pair} containing the IP 
+     * address as a {@link String} and the port as an {@link Integer}.
+     * @since 1.4
      */
     public static void sendImage(final BufferedImage image, 
             final Pair<String, Integer> host)
@@ -278,7 +337,7 @@ public class Client implements Runnable
         
         DatagramPacket packet;
         
-        DiscoveryRequest request = new DiscoveryRequest(thisHost.Left, 
+        DiscoveryRequest request = new DiscoveryRequest(thisName, thisHost.Left, 
                 thisHost.Right);
         
         byte[] buffer = request.encode();
@@ -292,17 +351,35 @@ public class Client implements Runnable
         }
     }
     
+    /**
+     * Responds to another instance of this program that is discovering new 
+     * hosts to connect to by sending a {@link DiscoveryResponse} containing the
+     *  IP address and UDP port of this host.
+     * 
+     * @param request The {@link DiscoveryMessage} sent by the host looking for 
+     * new clients.
+     * @since 1.4
+     */
     private void sendDiscoveryResponse(DiscoveryMessage request)
     {
-        Pair<String, Integer> source = new Pair<>(request.IP, request.Port);
-        if (source.equals(thisHost)) return;
+        Triple<String, String, Integer> source = 
+                new Triple<>(request.Name, request.IP, request.Port);
+        Pair<String, Integer> sourcePair = new Pair<>(request.IP, request.Port);
+        if (sourcePair.equals(thisHost)) return;
         
-        addKnownHost(source);
+        addHost(source);
         
-        DiscoveryResponse response = new DiscoveryResponse(thisHost.Left, thisHost.Right);
-        sendMessage(response, request.IP, request.Port);
+        sendMessage(new DiscoveryResponse(thisName, thisHost.Left, 
+                thisHost.Right), request.IP, request.Port);
     }
 
+    /**
+     * Runs a multicast listener in the background to let this instance of the 
+     * Distributed Whiteboard application respond to other instances looking for
+     *  others.
+     * 
+     * @since 1.1
+     */
     @Override
     public void run()
     {
@@ -334,7 +411,9 @@ public class Client implements Runnable
                 receiver.receive(packet);
                 System.out.println("Received a mutlicast packet.");
                 DiscoveryMessage msg = DiscoveryMessage.decode(buff);
-                if (msg.type == MessageType.DISCOVERY) {
+                if (msg == null) {
+                    System.err.println("Error decoding DiscoveryMessage.");
+                } else if (msg.type == MessageType.DISCOVERY) {
                     sendDiscoveryResponse(msg);
                 }
             } catch (IOException ex) {

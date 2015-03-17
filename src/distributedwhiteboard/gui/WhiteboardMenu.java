@@ -34,9 +34,10 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
     /** The owning component. */
     private final Component parent;
     // The various menus.
-    private final JMenu fileMenu, helpMenu, saveMenu;
+    private final JMenu fileMenu, helpMenu, saveMenu, clientsMenu;
     // File menu items.
-    private final JMenuItem connectItem, portItem, disconnectItem, exitItem;
+    private final JMenuItem connectItem, portItem, nameItem, disconnectItem, 
+            exitItem;
     // A listing of all supported image types to save to.
     private final ArrayList<JMenuItem> saveItems;
     // Help menu iems.
@@ -83,6 +84,9 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         this.portItem = new JMenuItem("Set Port");
         this.portItem.setMnemonic('p');
         
+        this.nameItem = new JMenuItem("Set Name");
+        this.nameItem.setMnemonic('n');
+        
         this.connectItem = new JMenuItem("Connect", connectIcon);
         this.connectItem.setMnemonic('c');
         
@@ -96,6 +100,7 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         this.fileMenu.setMnemonic('f');
         this.fileMenu.add(this.connectItem);
         this.fileMenu.add(this.portItem);
+        this.fileMenu.add(this.nameItem);
         this.fileMenu.add(this.disconnectItem);
         this.fileMenu.add(new JSeparator());
         this.fileMenu.add(this.saveMenu);
@@ -114,8 +119,11 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         this.helpMenu.add(new JSeparator());
         this.helpMenu.add(this.helpItem);
         
+        this.clientsMenu = new JMenu("Clients");
+        
         this.add(this.fileMenu);
         this.add(this.helpMenu);
+        this.add(this.clientsMenu);
         
         setupListeners();
     }
@@ -131,6 +139,7 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
             saveItem.addActionListener(this);
         
         portItem.addActionListener(this);
+        nameItem.addActionListener(this);
         connectItem.addActionListener(this);
         disconnectItem.addActionListener(this);
         exitItem.addActionListener(this);
@@ -187,6 +196,16 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         ((WhiteboardGUI)parent).saveCanvas(file, type);
     }
     
+    public void setClientList(String[] names)
+    {
+        clientsMenu.removeAll();
+        for (String client : names) {
+            JMenuItem item = new JMenuItem(client);
+            item.setEnabled(false);
+            clientsMenu.add(item);
+        }
+    }
+    
     /**
      * Handles the various {@link JMenuItem} interactions.
      * 
@@ -223,7 +242,15 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
                 JOptionPane.showMessageDialog(parent, ex.getMessage(), 
                         "Invalid Port", JOptionPane.ERROR_MESSAGE);
             }
-        } else if (source == connectItem) {
+        } else if (source == nameItem) {
+            // Set the users display name.
+            String answ = JOptionPane.showInputDialog(parent, 
+                    "Enter display name:", "Set Name", 
+                    JOptionPane.QUESTION_MESSAGE);
+            String title = String.format("Distributed Whiteboard - %s", answ);
+            ((JFrame)parent).setTitle(title);
+            Client.getInstance().setClientName(answ);
+        }else if (source == connectItem) {
             // Connect to the network.
             server.startServer();
             client.startClient();

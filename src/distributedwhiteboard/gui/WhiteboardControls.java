@@ -3,12 +3,11 @@ package distributedwhiteboard.gui;
 import distributedwhiteboard.Client;
 import distributedwhiteboard.DrawMode;
 import distributedwhiteboard.Pair;
-import distributedwhiteboard.Server;
+import distributedwhiteboard.Triple;
 import distributedwhiteboard.WhiteboardMessage;
 import distributedwhiteboard.gui.WhiteboardMenu.SaveType;
 import java.awt.CardLayout;
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -25,9 +24,7 @@ import java.awt.event.MouseMotionListener;
 import java.awt.font.TextAttribute;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.FileFilter;
 import java.io.IOException;
-import java.net.Socket;
 import java.util.Map;
 import java.util.Set;
 import javax.imageio.ImageIO;
@@ -48,7 +45,6 @@ import javax.swing.border.LineBorder;
 import javax.swing.border.MatteBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import say.swing.JFontChooser;
 
 /**
@@ -57,8 +53,8 @@ import say.swing.JFontChooser;
  * colour, line width, font and shape border settings.
  *
  * @author 6266215
- * @version 1.2
- * @since 2015-03-15
+ * @version 1.3
+ * @since 2015-03-17
  */
 public final class WhiteboardControls extends JPanel 
         implements ActionListener,  // Listen for button clicks.
@@ -66,7 +62,7 @@ public final class WhiteboardControls extends JPanel
                 KeyListener,        // Listen for keyboard events.
                 MouseListener,      // Listen for mouse clicks.
                 MouseMotionListener, // Listen for mouse movements.
-                ChangeListener
+                ChangeListener      // Listens for changes in JSliders.
 {
     /** Serialisation ID. */
     private static final long serialVersionUID = -6184851091001506327L;
@@ -380,17 +376,25 @@ public final class WhiteboardControls extends JPanel
         }
     }
     
+    /**
+     * Draws an image to the referenced {@link WhiteboardCanvas}. The image will
+     *  be drawn at the last point clicked.
+     * 
+     * @since 1.3
+     */
     private void drawImage()
     {
         if (lastPoint != null && image != null) {
             int scale = scaleSlider.getValue();
             WhiteboardMessage msg = new WhiteboardMessage(lastPoint, scale);
+            Client client = Client.getInstance();
             canvas.drawImage(lastPoint, image, scale/100.f);
-            Client.getInstance().broadCastMessage(msg);
-            Set<Pair<String, Integer>> hosts = Client.getInstance().getKnownHosts();
+            client.broadCastMessage(msg);
+            Set<Triple<String, String, Integer>> hosts = client.getKnownHosts();
+            // Send the image out to all know hosts.
             System.out.printf("Sending image to %d hosts %n", hosts.size());
-            for (Pair<String, Integer> host : hosts) {
-                Client.sendImage(image, host);
+            for (Triple<String, String, Integer> host : hosts) {
+                Client.sendImage(image, new Pair<>(host.Two, host.Three));
             }
         }
     }
@@ -467,8 +471,7 @@ public final class WhiteboardControls extends JPanel
                 for (SaveType type : SaveType.values()) {
                     if (extension.endsWith(type.name().toLowerCase()))
                         return true;
-                }
-                
+                }                
                 return false;
             }
 
@@ -594,8 +597,8 @@ public final class WhiteboardControls extends JPanel
     }
     
     /**
-     * Sets the currently active drawing mode based on the value selected in the
-     *  "Drawing Mode" combo box.
+     * Sets the currently active drawing mode based on the mode selected in the
+     * "Drawing Mode" combo box.
      * 
      * @param e The {@link ItemEvent} sent by the mode selection combo box.
      * @since 1.0
@@ -626,7 +629,7 @@ public final class WhiteboardControls extends JPanel
     }
     
     /**
-     * Changes the size of something based on the value selected in a combo box.
+     * Changes the size of something based on the mode selected in a combo box.
      * 
      * @param e The {@link ItemEvent} sent by the combo box.
      * @return Returns an int containing the number selected in the combo box.
@@ -784,6 +787,24 @@ public final class WhiteboardControls extends JPanel
                 break;
         }
     }
+    
+    /**
+     * Handles the image scaling slider in the image mode tools.
+     * 
+     * @param e The {@link ChangeEvent} from the slider containing the old and 
+     * new values.
+     * @since 1.3
+     */
+    @Override
+    public void stateChanged(ChangeEvent e)
+    {
+        Object source = e.getSource();
+        if (source == scaleSlider) {
+            float scale = scaleSlider.getValue()/100.0f;
+            String scaleStr = String.format("%1.2f", scale);
+            scaleAmount.setText(scaleStr);
+        }
+    }
 
     // <editor-fold defaultstate="collapsed" desc="Unimplemented handlers.">
     @Override
@@ -804,13 +825,4 @@ public final class WhiteboardControls extends JPanel
     @Override
     public void mouseMoved(MouseEvent e) { }
     // </editor-fold>
-
-    @Override
-    public void stateChanged(ChangeEvent e)
-    {
-        Object source = e.getSource();
-        if (source == scaleSlider) {
-            scaleAmount.setText(String.format("%1.2f", scaleSlider.getValue()/100.0f));
-        }
-    }
 }

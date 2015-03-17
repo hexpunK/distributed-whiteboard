@@ -1,13 +1,17 @@
 package distributedwhiteboard.gui;
 
 import distributedwhiteboard.Client;
+import distributedwhiteboard.Pair;
 import distributedwhiteboard.Server;
+import distributedwhiteboard.Triple;
 import java.awt.Color;
 import java.awt.Container;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
@@ -23,7 +27,7 @@ import javax.swing.UnsupportedLookAndFeelException;
  * 
  * @author 6266215
  * @version 1.1
- * @since 2015-03-12
+ * @since 2015-03-17
  */
 public class WhiteboardGUI extends JFrame implements Runnable 
 {
@@ -220,6 +224,34 @@ public class WhiteboardGUI extends JFrame implements Runnable
      * @since 1.1
      */
     public WhiteboardCanvas getCanvas() { return this.canvas; }
+    
+    /**
+     * Updates the list of clients shown in the drop down menu.
+     * 
+     * @since 1.2
+     */
+    public void updateClientList()
+    {
+        Client client = Client.getInstance();
+        Set<Triple<String, String, Integer>> clients = client.getKnownHosts();
+        
+        Set<String> names = new HashSet<>();
+        names.add(client.getClientName());
+        for (Triple<String, String, Integer> host : clients) {
+            int dupCount = 0;
+            String name = host.One;
+            while (true) {
+                if (dupCount > 0) {
+                    name = String.format("%s (%d)", host.One, dupCount);
+                }
+                if (names.add(name)) break;
+                dupCount++;
+            }
+        }
+        String[] nameArray = new String[names.size()];
+        nameArray = names.toArray(nameArray);
+        menu.setClientList(nameArray);
+    }
 
     /**
      * Stop the repainting thread gracefully when the window sends the 

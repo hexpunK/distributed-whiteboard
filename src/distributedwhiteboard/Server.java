@@ -1,6 +1,7 @@
 package distributedwhiteboard;
 
 import distributedwhiteboard.DiscoveryMessage.DiscoveryResponse;
+import distributedwhiteboard.DiscoveryMessage.JoinRequest;
 import distributedwhiteboard.gui.WhiteboardCanvas;
 import distributedwhiteboard.gui.WhiteboardGUI;
 import java.awt.Dimension;
@@ -23,12 +24,12 @@ import javax.imageio.ImageIO;
  * Whiteboard application.
  *
  * @author 6266215
- * @version 1.3
- * @since 201503-15
+ * @version 1.4
+ * @since 201503-17
  */
 public class Server implements Runnable
 {
-    /** *  The singleton instance of {@link Server}. */
+    /** The singleton instance of {@link Server}. */
     private static Server INSTANCE;
     /** The maximum size of a {@link DatagramPacket} buffer. */
     private static final int BUFFER_SIZE 
@@ -40,7 +41,7 @@ public class Server implements Runnable
     /** A reserved port to listen for multicast packets on. */
     public static final int MULTICAST_PORT = 55559;
     /** A UDP {@link DatagramSocket} to listen for connections on. */
-    private DatagramSocket updServer;
+    private DatagramSocket udpServer;
     /** A TCP {@link Socket} to receive images and large data over. */
     private ServerSocket tcpServer;
     /** A port number to listen on. */
@@ -61,7 +62,7 @@ public class Server implements Runnable
      */
     private Server()
     {
-        this.updServer = null;
+        this.udpServer = null;
         this.serverThread = null;
         this.runServer = false;
         this.port = 55551;
@@ -89,7 +90,7 @@ public class Server implements Runnable
                 "Port number must be between 0 and 65536"
             );
         }
-        this.updServer = null;
+        this.udpServer = null;
         this.serverThread = null;
         this.runServer = false;
         this.port = port;
@@ -168,7 +169,7 @@ public class Server implements Runnable
     public boolean startServer()
     {
         try {
-            updServer = new DatagramSocket(port);
+            udpServer = new DatagramSocket(port);
         } catch (SocketException ex) {
             serverError("Couldn't create DatagramSocket.%n%s", 
                     ex.getMessage());
@@ -207,8 +208,8 @@ public class Server implements Runnable
     {
         runServer = false;
         try {
-            if (updServer != null && !updServer.isClosed())
-                updServer.close();
+            if (udpServer != null && !udpServer.isClosed())
+                udpServer.close();
             if (tcpServer != null && !tcpServer.isClosed())
                 tcpServer.close();
             if (serverThread != null)
@@ -231,10 +232,14 @@ public class Server implements Runnable
     private void handleWhiteboardMessage(WhiteboardMessage msg)
     {
         if (msg == null) {
-            System.err.println("Could not decode WhiteboardMessage");
+            serverError("Could not decode WhiteboardMessage");
             return;
         }
         WhiteboardCanvas canvas = WhiteboardGUI.getInstance().getCanvas();
+        if (canvas == null) {
+            serverError("No Whiteboard canvas could be found.");
+            return;
+        }
         
         switch (msg.mode) {
             case LINE:
@@ -305,7 +310,8 @@ public class Server implements Runnable
                 if (tcpServer != null && !tcpServer.isClosed())
                     tcpServer.close();
             } catch (IOException closeEx) {
-                serverError(closeEx.getMessage());
+                serverError("Could not close TCP server.%n%s", 
+                        closeEx.getMessage());
             }
         }
         
@@ -324,23 +330,34 @@ public class Server implements Runnable
     private void handleDiscoveryResponse(DiscoveryMessage msg)
     {
         Client client = Client.getInstance();
-        if (msg == null || client == null) {
-            System.err.println("Could not decode DiscoveryMessage");
+        WhiteboardCanvas canvas = WhiteboardGUI.getInstance().getCanvas();
+        if (msg == null) {
+            serverError("Could not decode DiscoveryMessage");
+            return;
+        }
+        if (client == null) {
+            serverError("Could not get clientside component.");
+            return;
+        }
+        if (canvas == null) {
+            serverError("Could not get whiteboard canvas.");
             return;
         }
         
+        String newName = msg.Name;
         String newIP = msg.IP;
         int newPort = msg.Port;
-        Pair<String, Integer> host = new Pair<>(newIP, newPort);
+        Triple<String, String, Integer> host = new Triple<>(newName, newIP, 
+                newPort);
         
-        client.addKnownHost(host);
+        client.addHost(host);
         serverMessage("Requesting canvas from host %s:%d.", msg.IP, msg.Port);
-        DiscoveryMessage.JoinRequest join = new DiscoveryMessage.JoinRequest(hostName, TCP_PORT);
-        client.sendMessage(join, host.Left, host.Right);
+        client.sendMessage(new JoinRequest(client.getClientName(), hostName, 
+                TCP_PORT), host.Two, host.Three);
             
         BufferedImage image = receiveImage();
         serverMessage("Received canvas from host %s:%d.", msg.IP, msg.Port);
-        WhiteboardGUI.getInstance().getCanvas().drawImage(new Point(), image, 1.0f);
+        canvas.drawImage(new Point(), image, 1.0f);
     }
     
     /**
@@ -352,16 +369,36 @@ public class Server implements Runnable
      *  join this distributed network.
      * @since 1.3
      */
-    private void handeJoinRequest(final DiscoveryMessage msg)
+    private void handeJoinRequest(DiscoveryMessage msg)
     {
         if (msg == null) {
             serverError("JoinRequest was incorrectly formed.");
             return;
         }
         serverMessage("Sending canvas to host %s:%d.", msg.IP, msg.Port);
-        final BufferedImage canvas = 
+        BufferedImage canvas = 
                 WhiteboardGUI.getInstance().getCanvas().getBufferedImage();
         Client.sendImage(canvas, new Pair<>(msg.IP, msg.Port));
+        WhiteboardGUI.getInstance().updateClientList();
+    }
+    
+    /**
+     * Handles {@link LeaveRequest} messages from clients disconnecting from 
+     * the distributed network.
+     * 
+     * @param msg The {@link DiscoveryMessage} to read the IP address and port 
+     * of the disconnecting client from.
+     * @since 1.4
+     */
+    private void handleLeaveRequest(DiscoveryMessage msg)
+    {
+        Client client = Client.getInstance();
+        if (client == null) {
+            serverError("Could not get client instance.");
+            return;
+        }
+        client.removeHost(new Triple<>(msg.Name, msg.IP, msg.Port));
+        WhiteboardGUI.getInstance().updateClientList();
     }
     
     /**
@@ -425,22 +462,29 @@ public class Server implements Runnable
             try {
                 buffer = new byte[BUFFER_SIZE];
                 packet = new DatagramPacket(buffer, BUFFER_SIZE);
-                updServer.receive(packet);
+                udpServer.receive(packet);
                 t = NetMessage.getMessageType(buffer);
                 if (t == null) {
                     serverMessage("Received an unknown message type. Ignored.");
                     continue;
                 }
+                NetMessage msg;
                 switch (t) {
                     case DRAW:
-                        handleWhiteboardMessage(WhiteboardMessage.decodeMessage(buffer));
+                        msg = WhiteboardMessage.decode(buffer);
+                        handleWhiteboardMessage((WhiteboardMessage)msg);
                         break;
                     case JOIN:
-                        serverMessage("Received join request");
-                        handeJoinRequest(DiscoveryResponse.decode(buffer));
+                        msg = DiscoveryMessage.decode(buffer);
+                        handeJoinRequest((DiscoveryMessage)msg);
                         break;
                     case RESPONSE:
-                        handleDiscoveryResponse(DiscoveryResponse.decode(buffer));
+                        msg = DiscoveryMessage.decode(buffer);
+                        handleDiscoveryResponse((DiscoveryMessage)msg);
+                        break;
+                    case LEAVE:
+                        msg = DiscoveryMessage.decode(buffer);
+                        handleLeaveRequest((DiscoveryMessage)msg);
                         break;
                 }
             } catch (IOException ioEx) {

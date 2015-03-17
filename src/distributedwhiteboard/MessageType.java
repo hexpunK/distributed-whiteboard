@@ -4,8 +4,8 @@ package distributedwhiteboard;
  * Message types to help the server understand what a {@link WhiteboardMessage} 
  * is trying to communicate.
  * 
- * @version 1.0
- * @since 2015-03-14
+ * @version 1.1
+ * @since 2015-03-17
  */
 public enum MessageType
 {
@@ -13,13 +13,15 @@ public enum MessageType
     DRAW('d'),
     /** The message is requesting to join the network. */
     JOIN('j'),
+    /** A client is disconnecting from the network. */
+    LEAVE('l'),
     /** A client is looking for other clients to communicate with. */
     DISCOVERY('f'),
     /** A client is responding to a {@link MessageType#DISCOVERY} message. */
     RESPONSE('r');
         
-    public final char value;
-    private MessageType(char value) { this.value = value; }
+    public final char type;
+    private MessageType(char value) { this.type = value; }
         
     /**
      * Works out the {@link MessageType} of a provided character.
@@ -31,9 +33,9 @@ public enum MessageType
      */
     public static MessageType parseChar(char c)
     {
-        for (MessageType type : MessageType.values()) {
-            if (type.value == c)
-                return type;
+        for (MessageType t : MessageType.values()) {
+            if (t.type == c)
+                return t;
         }
         System.out.printf("Unknown MessageType '%c'%n", c);
         return null;
@@ -42,6 +44,6 @@ public enum MessageType
     @Override        
     public String toString()
     {
-        return String.format("%s(%c)", this.name(), this.value);
+        return String.format("%s(%c)", this.name(), this.type);
     }
 }

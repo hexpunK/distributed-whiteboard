@@ -21,8 +21,6 @@ public class Distributedwhiteboard
     public static void main(String[] args) 
     {
         int port = 55551;
-        String title = "Distributed Whiteboard - 6266215";
-        
         
         for (int i = 0; i < args.length; i++) {
             switch(args[i]) {
@@ -39,16 +37,12 @@ public class Distributedwhiteboard
             }
         }
         
-        final String windTitle = title;
         SwingUtilities.invokeLater(new Runnable()
         {
             @Override
             public void run()
             {
-                WhiteboardGUI gui = WhiteboardGUI.getInstance();
-                if (gui == null) return;
-                if (!windTitle.isEmpty())
-                    gui.setTitle(windTitle);
+                WhiteboardGUI.getInstance();
             }
         });
         

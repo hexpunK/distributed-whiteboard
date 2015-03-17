@@ -38,7 +38,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
     protected static final byte POINT_TWO_OFFSET = POINT_ONE_OFFSET+POINT_SIZE;
     /** The offset for the {@link Color} object used by shapes. */
     protected static final byte COLOUR_OFFSET = POINT_TWO_OFFSET+POINT_SIZE;
-    /** The byte offset of the line weight value. */
+    /** The byte offset of the line weight mode. */
     protected static final byte WEIGHT_OFFSET = COLOUR_OFFSET+COLOUR_SIZE;
     
     /** The byte offset of the {@link Color} object used by text. */
@@ -60,7 +60,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
     protected static final byte BORDER_OFFSET = FILL_OFFSET+1;
     /** The byte offset for the {@link Color} object used by borders. */
     protected static final byte BORDER_COL_OFFSET = BORDER_OFFSET+1;
-    /** The byte offset for the border weight value. */
+    /** The byte offset for the border weight mode. */
     protected static final byte BORDER_W_OFFSET = BORDER_COL_OFFSET+COLOUR_SIZE;
     // </editor-fold>
     
@@ -214,8 +214,8 @@ public class WhiteboardMessage extends NetMessage implements Serializable
      * TCP for an image.
      * 
      * @param p1 The top-left corner position of the image as a {@link Point}.
-     * @param scale The scaling of the image. This value must be between 0 and 
-     * 100, and will be divided by 100 to create a multiplier.
+     * @param scale The scaling of the image. This mode must be between 0 and 
+ 100, and will be divided by 100 to create a multiplier.
      * @since 1.2
      */
     public WhiteboardMessage(Point p1, int scale)
@@ -268,7 +268,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
      * properly formed, null otherwise.
      * @since 1.0
      */
-    public static WhiteboardMessage decodeMessage(byte[] message)
+    public static WhiteboardMessage decode(byte[] message)
     {
         String messageStr = new String(message).trim();
         DrawMode m = DrawMode.parseChar(messageStr.charAt(1));
@@ -412,7 +412,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
     /**
      * Attempts to convert a {@link String} into a {@link Point}. This method 
      * expects the string to contain an x and y component in the format; <pre>
-     * xxxxyyyy</pre>, if the value is low enough these can be zero padded.
+     * xxxxyyyy</pre>, if the mode is low enough these can be zero padded.
      * 
      * @param s The string to convert.
      * @return Returns a new {@link Point} if the string can be decoded, null 
@@ -526,8 +526,8 @@ public class WhiteboardMessage extends NetMessage implements Serializable
     {
         StringBuilder sb = new StringBuilder();
         
-        sb.append(type.value);
-        sb.append(mode.value);
+        sb.append(type.type);
+        sb.append(mode.mode);
         sb.append(pointToString(startPoint));
         switch (mode) {
             case FREEFORM_LINE:

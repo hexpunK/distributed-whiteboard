@@ -43,23 +43,23 @@ public enum DrawMode
      */
     IMAGE('i');
     
-    public final char value;
-    private DrawMode(char val) { this.value = val; }
+    public final char mode;
+    private DrawMode(char val) { this.mode = val; }
     
     /**
      * Parses a provided character and provides the correct {@link DrawMode} 
-     * enumeration value for that character.
+     * enumeration mode for that character.
      * 
      * @param c The character to parse.
-     * @return A {@link DrawMode} value if a matching one is found, null 
+     * @return A {@link DrawMode} mode if a matching one is found, null 
      * otherwise.
      * @since 1.2
      */
     public static DrawMode parseChar(char c)
     {
-        for (DrawMode mode : DrawMode.values()) {
-            if (mode.value == c)
-                return mode;
+        for (DrawMode m : DrawMode.values()) {
+            if (m.mode == c)
+                return m;
         }
         System.out.printf("Unknown DrawType '%c'%n", c);
         return null;
@@ -70,7 +70,7 @@ public enum DrawMode
      * Names will have all underscores replaced with spaces, and the first 
      * character of each word capitalised.
      * 
-     * @return Returns the formatted name of an enum value as a String.
+     * @return Returns the formatted name of an enum mode as a String.
      * @since 1.0
      */
     @Override
