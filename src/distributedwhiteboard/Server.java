@@ -1,6 +1,5 @@
 package distributedwhiteboard;
 
-import distributedwhiteboard.DiscoveryMessage.DiscoveryResponse;
 import distributedwhiteboard.DiscoveryMessage.JoinRequest;
 import distributedwhiteboard.gui.WhiteboardCanvas;
 import distributedwhiteboard.gui.WhiteboardGUI;
@@ -8,6 +7,7 @@ import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -17,6 +17,11 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Queue;
+import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import javax.imageio.ImageIO;
 
 /**
@@ -24,13 +29,15 @@ import javax.imageio.ImageIO;
  * Whiteboard application.
  *
  * @author 6266215
- * @version 1.4
- * @since 201503-17
+ * @version 1.5
+ * @since 2015-03-26
  */
 public class Server implements Runnable
 {
     /** The singleton instance of {@link Server}. */
     private static Server INSTANCE;
+    /** The ratio for packet loss simulation. */
+    private static int PACKET_LOSS;
     /** The maximum size of a {@link DatagramPacket} buffer. */
     private static final int BUFFER_SIZE 
             = new WhiteboardMessage().encode().length;
@@ -52,6 +59,11 @@ public class Server implements Runnable
     private Thread serverThread;
     /** Lets the server continue to execute in the background. */
     private volatile boolean runServer;
+    /** Contains a history of all received {@link NetMessage}s. */
+    public static final ConcurrentHashMap<String, NetMessage> messages 
+            = new ConcurrentHashMap<>();
+    /** Holds a buffer of {@link NetMessage}s that need requesting. */
+    private Queue<NetMessage> messageBuffer;
     
     /**
      * Creates a new instance of {@link Server}. This is private to force usage 
@@ -71,6 +83,7 @@ public class Server implements Runnable
         } catch (UnknownHostException ex) {
             this.hostName = "UNKNOWN";
         }
+        this.messageBuffer = new ConcurrentLinkedQueue<>(); //HashSet<>();
     }
     
     /**
@@ -99,6 +112,7 @@ public class Server implements Runnable
         } catch (UnknownHostException ex) {
             this.hostName = "UNKNOWN";
         }
+        this.messageBuffer = new ConcurrentLinkedQueue<>();
     }
     
     /**
@@ -135,6 +149,24 @@ public class Server implements Runnable
         
         return Server.INSTANCE;
     }
+    
+    /**
+     * Sets the packet loss ratio for the {@link Server}. This will only affect 
+     * {@link WhiteboardMessage} messages rather than all types. The value is 
+     * clamped between 0 and 100.
+     * 
+     * @param ratio The ratio of packets to drop as a int.
+     * @since 1.5
+     */
+    public static void setPacketLossRatio(int ratio)
+    {
+        ratio = Math.max(0, ratio);
+        ratio = Math.min(100, ratio);
+        PACKET_LOSS = ratio;
+        System.out.printf("Set server packet loss to %d%%%n", PACKET_LOSS);
+    }
+    
+    public static int getPacketLossRatio() { return PACKET_LOSS; }
     
     /**
      * Sets the port this {@link Server} will use when listening for 
@@ -220,6 +252,50 @@ public class Server implements Runnable
         } catch (IOException ioEx) {
             serverError("Failed to close server.%n%s", ioEx.getMessage());
         }
+        serverMessage("Server stopped", hostName, port);
+    }
+    
+    private boolean processPacket(byte[] buffer)
+    {
+        NetMessage msg;
+        MessageType t = NetMessage.getMessageType(buffer);
+        if (t == null) {
+            serverMessage("Received an unknown message type. Ignored.");
+            return false;
+        }
+        switch (t) {
+            case DRAW:
+                msg = WhiteboardMessage.decode(buffer);
+                int ranVal = new Random().nextInt(100);
+                if (ranVal <= PACKET_LOSS) {
+                    serverMessage("Dropped a packet.");
+                    return false;
+                }
+                messages.put(msg.getUniqueID(), msg);
+                if (msg.getRequiredID() != null 
+                        && !messages.containsKey(msg.getRequiredID())) {
+                    if (!messageBuffer.contains(msg))
+                        messageBuffer.add(msg);
+                    System.out.println("Missing a required packet.");
+                    return false;
+                }
+                handleWhiteboardMessage((WhiteboardMessage)msg);
+                break;
+            case JOIN:
+                msg = DiscoveryMessage.decode(buffer);
+                handeJoinRequest((DiscoveryMessage)msg);
+                break;
+            case RESPONSE:
+                msg = DiscoveryMessage.decode(buffer);
+                handleDiscoveryResponse((DiscoveryMessage)msg);
+                break;
+            case LEAVE:
+                msg = DiscoveryMessage.decode(buffer);
+                handleLeaveRequest((DiscoveryMessage)msg);
+                break;
+        }
+        
+        return true;
     }
     
     /**
@@ -240,7 +316,6 @@ public class Server implements Runnable
             serverError("No Whiteboard canvas could be found.");
             return;
         }
-        
         switch (msg.mode) {
             case LINE:
             case POLYGON:
@@ -279,13 +354,12 @@ public class Server implements Runnable
     }
     
     /**
-     * Receives an image sent to this instance of the Distributed Whiteboard by 
-     * setting up a TCP connection. This connection uses the port specified in
-     * TCP_PORT, so no other instances of the application should use this port.
+     * Receives data from a TCP connection. This will be used when sending large
+     *  amounts of data between two instances of the whiteboard due to the 
+     * limitations of UDP communication.
      * 
-     * @return Returns a {@link BufferedImage} containing the image to render. 
-     * Returns null if there are any problems with receiving the networked 
-     * image.
+     * @return Returns the {@link InputStream} for this {@link Socket} to read 
+     * data from.
      * @since 1.3
      */
     private BufferedImage receiveImage()
@@ -304,13 +378,13 @@ public class Server implements Runnable
         } catch (SocketTimeoutException sEx) {
             serverError("Socket timed out receiving image.");
         } catch (IOException ex) {
-            serverError("Error receiving image.%n%s", ex.getMessage());
+            serverError("Error receiving TCP data.%n%s", ex.getMessage());
         } finally {
             try {
                 if (tcpServer != null && !tcpServer.isClosed())
                     tcpServer.close();
             } catch (IOException closeEx) {
-                serverError("Could not close TCP server.%n%s", 
+                serverError("Couldm't close TCP server.%n%s", 
                         closeEx.getMessage());
             }
         }
@@ -399,6 +473,38 @@ public class Server implements Runnable
         client.removeHost(new Triple<>(msg.Name, msg.IP, msg.Port));
     }
     
+    public void slowRedraw(final int ms)
+    {
+        new Thread(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                String lastID = null;
+                int drawn = 0;
+                System.out.println("Redrawing...");
+                WhiteboardGUI.getInstance().getCanvas().clearCanvas();
+                while (drawn < messages.size()) {
+                    for (NetMessage message : messages.values()) {
+                        if ( message.getRequiredID() == null ||
+                                (message.getRequiredID().equals(lastID)
+                                && message instanceof WhiteboardMessage)) {
+                            System.out.printf("Lsat ID: %s - Current ID: %s", lastID == null ? "null" : lastID, message.getUniqueID());
+                            System.out.printf("Drawn %d - Size %d%n", drawn, messages.size());
+                            lastID = message.getUniqueID();
+                            handleWhiteboardMessage((WhiteboardMessage)message);
+                            drawn++;
+                            break;
+                        }
+                    }
+                    try {
+                                Thread.sleep(ms);
+                            } catch (InterruptedException ex) {}
+                }
+            }
+        }).start();
+    }
+    
     /**
      * Prints the specified {@link String} to the {@link System#out} stream.
      * 
@@ -453,38 +559,24 @@ public class Server implements Runnable
         runServer = true;
         byte[] buffer;
         DatagramPacket packet;
-        MessageType t;
+        ArrayList<NetMessage> toRemove = new ArrayList<>();
         
         serverMessage("Listening for connections...");
         while(runServer) {
+            for (NetMessage head : messageBuffer) {
+                if (!processPacket(head.encode())) 
+                    Client.getInstance().requestPacket(head.getRequiredID());
+                else {
+                    toRemove.add(head);
+                }
+            }
+            messageBuffer.removeAll(toRemove);
+            toRemove.clear();
             try {
                 buffer = new byte[BUFFER_SIZE];
                 packet = new DatagramPacket(buffer, BUFFER_SIZE);
                 udpServer.receive(packet);
-                t = NetMessage.getMessageType(buffer);
-                if (t == null) {
-                    serverMessage("Received an unknown message type. Ignored.");
-                    continue;
-                }
-                NetMessage msg;
-                switch (t) {
-                    case DRAW:
-                        msg = WhiteboardMessage.decode(buffer);
-                        handleWhiteboardMessage((WhiteboardMessage)msg);
-                        break;
-                    case JOIN:
-                        msg = DiscoveryMessage.decode(buffer);
-                        handeJoinRequest((DiscoveryMessage)msg);
-                        break;
-                    case RESPONSE:
-                        msg = DiscoveryMessage.decode(buffer);
-                        handleDiscoveryResponse((DiscoveryMessage)msg);
-                        break;
-                    case LEAVE:
-                        msg = DiscoveryMessage.decode(buffer);
-                        handleLeaveRequest((DiscoveryMessage)msg);
-                        break;
-                }
+                processPacket(buffer);
             } catch (IOException ioEx) {
                 // Only print errors while the server is running.
                 if (runServer) {
@@ -492,7 +584,5 @@ public class Server implements Runnable
                 }
             }
         }
-        
-        serverMessage("Server stopped", hostName, port);
     }
 }

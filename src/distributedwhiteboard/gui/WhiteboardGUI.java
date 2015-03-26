@@ -1,7 +1,6 @@
 package distributedwhiteboard.gui;
 
 import distributedwhiteboard.Client;
-import distributedwhiteboard.Pair;
 import distributedwhiteboard.Server;
 import distributedwhiteboard.Triple;
 import java.awt.Color;
@@ -29,7 +28,7 @@ import javax.swing.UnsupportedLookAndFeelException;
  * @version 1.2
  * @since 2015-03-17
  */
-public class WhiteboardGUI extends JFrame implements Runnable 
+public class WhiteboardGUI extends JFrame
 {
     /** Serialisation ID. */
     private static final long serialVersionUID = -4404291511660285311L;
@@ -120,7 +119,6 @@ public class WhiteboardGUI extends JFrame implements Runnable
         this.setResizable(true);
         this.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         this.setVisible(true);
-        //startWindow();
     }
     
     /**
@@ -168,21 +166,6 @@ public class WhiteboardGUI extends JFrame implements Runnable
     }
     
     /**
-     * Starts the repainting thread and completes any extra initialisation that 
-     * cannot be done in the constructor.
-     * 
-     * @since 1.1
-     */
-    private void startWindow()
-    {
-        // Repaint the window constantly due to a weird rendering bug on Win.
-        repainter = new Thread(this);
-        repainter.setName("Whiteboard Repainter");
-        repainter.setPriority(Thread.MIN_PRIORITY);
-        repainter.start();
-    }
-    
-    /**
      * Saves the current {@link WhiteboardCanvas} to a file of the specified 
      * {@link WhiteboardMenu.SaveType}.
      * 
@@ -194,16 +177,8 @@ public class WhiteboardGUI extends JFrame implements Runnable
      */
     public boolean saveCanvas(File file, WhiteboardMenu.SaveType type)
     {
-        switch (type) {
-            case BMP:
-            case PNG:
-            case GIF:
-            case JPEG:
-                break;
-            case UNSUPPORTED:
-            default:
-                return false;
-        }
+        if (type == WhiteboardMenu.SaveType.UNSUPPORTED)
+            return false;
             
         BufferedImage img = canvas.getBufferedImage();
         try {
@@ -282,25 +257,6 @@ public class WhiteboardGUI extends JFrame implements Runnable
                 }
             }
             dispose();
-        }
-    }
-    
-    /**
-     * Repaints the entire window every 10 milliseconds to solve a rendering 
-     * error on Windows.
-     * 
-     * @since 1.0
-     */
-    @Override
-    public void run()
-    {
-        while (true) {
-            repaint();
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException ex) { 
-                break;
-            }
         }
     }
 }

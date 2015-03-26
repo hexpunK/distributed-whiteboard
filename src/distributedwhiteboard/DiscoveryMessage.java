@@ -17,16 +17,17 @@ public abstract class DiscoveryMessage extends NetMessage
     private static final int IP_SIZE = 12;
     /** The number of characters in an encoded port. */
     private static final int PORT_SIZE = 5;
-    
+    /** The maximum size of a client name. */
     private static final int NAME_SIZE = 20;
     
     /** The character offset in the message for the start of the IP address. */
     private static final int IP_OFFSET = TYPE_OFFSET+1;
     /** The character offset in the message for the start of the port number. */
     private static final int PORT_OFFSET = IP_OFFSET+IP_SIZE;
-    
+    /** The character offset in the message for the client name. */
     private static final int NAME_OFFSET = PORT_OFFSET+PORT_SIZE;
     
+    /** A {@link String} containing a name to identify the client. */
     public final String Name;
     /** The IP address for the source of this {@link DiscoveryMessage}. */
     public final String IP;
@@ -37,16 +38,17 @@ public abstract class DiscoveryMessage extends NetMessage
      * Creates a new {@link DiscoveryMessage} with the specified {@link 
      * MessageType}, IP address and port number stored inside.
      * 
-     * @param type The {@link MessageType} of this message. This will normally 
+     * @param t The {@link MessageType} of this message. This will normally 
      * be one of; {@link MessageType#DISCOVERY}, {@link MessageType#RESPONSE}, 
      * {@link MessageType#JOIN} or {@link MessageType#LEAVE}.
+     * @param name The name the sending {@link Client} is using.
      * @param ip The IP address or host name to send as a String.
      * @param port The UDP port number to send as an int.
      * @since 1.0
      */
-    protected DiscoveryMessage(MessageType type, String name, String ip, int port)
+    protected DiscoveryMessage(MessageType t, String name, String ip, int port)
     {
-        super(type);
+        super(t);
         this.Name = name;
         this.IP = ip;
         this.Port = port;
@@ -93,14 +95,12 @@ public abstract class DiscoveryMessage extends NetMessage
     {
         String messageStr = new String(buffer).trim();
         
-        String uID = messageStr.substring(ID_OFFSET, RELY_OFFSET);
-        String rID = messageStr.substring(RELY_OFFSET, TYPE_OFFSET);
-        MessageType type = MessageType.parseChar(messageStr.charAt(TYPE_OFFSET));
+        MessageType t = MessageType.parseChar(messageStr.charAt(TYPE_OFFSET));
         String ipStr = messageStr.substring(IP_OFFSET, PORT_OFFSET);
         String portStr = messageStr.substring(PORT_OFFSET, NAME_OFFSET);
         int port;
         
-        ipStr = stringToIP(ipStr);
+        ipStr = Conversions.stringToIP(ipStr);
         if (ipStr == null) return null;
         
         try {
@@ -118,88 +118,21 @@ public abstract class DiscoveryMessage extends NetMessage
         nStr = nStr.trim();
         
         DiscoveryMessage msg = null;
-        if (type == MessageType.DISCOVERY)
+        if (t == MessageType.DISCOVERY)
             msg = new DiscoveryRequest(nStr, ipStr, port);
-        else if (type == MessageType.RESPONSE)
+        else if (t == MessageType.RESPONSE)
             msg = new DiscoveryResponse(nStr, ipStr, port);
-        else if (type == MessageType.JOIN)
+        else if (t == MessageType.JOIN)
             msg = new JoinRequest(nStr, ipStr, port);
-        else if (type == MessageType.LEAVE)
+        else if (t == MessageType.LEAVE)
             msg = new LeaveRequest(nStr, ipStr, port);
         
         if (msg != null) {
-            msg.setUniqueID(uID);
-            msg.setRequiredID(rID);
             return msg;
         }
         
         System.err.println("Invalid message type.");
         return null;
-    }
-    
-    /**
-     * Converts a {@link String} to a properly formed IPv4 IP address.
-     * 
-     * @param str The encoded String to convert.
-     * @return The decoded IP address as a String. If the String cannot be 
-     * decoded properly, this will return null instead.
-     * @since 1.0
-     */
-    private static String stringToIP(String str)
-    {
-        String[] octetStrs = new String[4];
-        
-        try {
-            octetStrs[0] = str.substring(0, 3);
-            octetStrs[1] = str.substring(3, 6);
-            octetStrs[2] = str.substring(6, 9);
-            octetStrs[3] = str.substring(9, 12);
-        } catch (IndexOutOfBoundsException indEx) {
-            System.err.println("IP Address is not properly formed.");
-            return null;
-        }
-        
-        int[] octets = new int[octetStrs.length];
-        try {
-            for (int i = 0; i < octetStrs.length; i++)
-                octets[i] = Integer.parseInt(octetStrs[i]);
-        } catch (NumberFormatException nfe) {
-            System.err.println("IP Address contained non-numeric character.");
-            return null;
-        }
-        
-        return String.format("%d.%d.%d.%d", octets[0], octets[1], 
-                octets[2], octets[3]);
-    }
-    
-    /**
-     * Converts a standard representation of an IPv4 address to an encoded 
-     * String to be sent over the network. This strips out the periods and pads 
-     * each octet to 3 characters in length.
-     * 
-     * @param address The IPv4 formatted address to convert to an encoded form.
-     * @return Returns the encoded String if it is encoded, otherwise returns 
-     * null.
-     * @since 1.0
-     */
-    private static String ipToString(String address)
-    {
-        String[] octetStrs = address.split("\\.");
-        if (octetStrs.length != 4) return null;
-        
-        int[] octets = new int[octetStrs.length];
-        
-        for (int i = 0; i < octets.length; i++) {
-            try {
-                octets[i] = Integer.parseInt(octetStrs[i]);
-            } catch (NumberFormatException nfe) {
-                System.err.println("Provided IP address is incorrectly formed.");
-                return null;
-            }
-        }
-        
-        return String.format("%03d%03d%03d%03d", 
-                octets[0], octets[1], octets[2], octets[3]);
     }
 
     /**
@@ -216,7 +149,7 @@ public abstract class DiscoveryMessage extends NetMessage
         StringBuilder sb = new StringBuilder();
         sb.append(super.toString());
         
-        String ipStr = DiscoveryMessage.ipToString(IP);
+        String ipStr = Conversions.ipToString(IP);
         String portStr = String.format("%05d", Port);
         
         if (ipStr == null || ipStr.isEmpty() || portStr.isEmpty())

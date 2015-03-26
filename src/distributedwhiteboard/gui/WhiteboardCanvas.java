@@ -1,5 +1,8 @@
 package distributedwhiteboard.gui;
 
+import distributedwhiteboard.NetMessage;
+import distributedwhiteboard.Server;
+import distributedwhiteboard.WhiteboardMessage;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -12,11 +15,8 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.RenderingHints.Key;
 import java.awt.Shape;
-import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
-import java.awt.image.BufferedImageOp;
 import java.awt.image.Raster;
-import java.awt.image.RescaleOp;
 import java.util.HashMap;
 import java.util.Map;
 import javax.swing.JPanel;
@@ -61,12 +61,7 @@ public class WhiteboardCanvas extends JPanel
      * @since 1.2
      */
     public BufferedImage getBufferedImage() { return this.canvas; }
-    
-    public void setImage(Raster r)
-    {
-        canvas.setData(r);
-    }
-    
+        
     /**
      * Draws a line on the canvas between the specified points with the provided
      *  colour and line weight.
@@ -92,7 +87,9 @@ public class WhiteboardCanvas extends JPanel
         
         g.setColor(col);
         g.setStroke(new BasicStroke(weight));
-        g.drawLine(start.x, start.y, end.x, end.y);
+        synchronized (WhiteboardCanvas.class) {
+            g.drawLine(start.x, start.y, end.x, end.y);
+        }
         this.repaint();
         return end;
     }
@@ -123,7 +120,9 @@ public class WhiteboardCanvas extends JPanel
         String text = String.valueOf(c);
         g.setColor(col);
         g.setFont(f);
-        g.drawString(text, point.x, point.y);
+        synchronized (WhiteboardCanvas.class) {
+            g.drawString(text, point.x, point.y);
+        }
         FontMetrics metrics = g.getFontMetrics();
         
         Point nextPoint = new Point(point);
@@ -202,17 +201,19 @@ public class WhiteboardCanvas extends JPanel
             borderWeight = weight;
         
         g.setColor(col);
-        if (fillShape)
-            g.fill(s);
-        else
-            g.draw(s);
-        
-        if (border) {
-            g.setColor(borderCol);
-            g.setStroke(new BasicStroke(borderWeight));
-            g.draw(s);
+        synchronized (WhiteboardCanvas.class) {
+            if (fillShape)
+                g.fill(s);
+            else
+                g.draw(s);
+
+            if (border) {
+                g.setColor(borderCol);
+                g.setStroke(new BasicStroke(borderWeight));
+                g.draw(s);
+            }
+            this.repaint();
         }
-        this.repaint();
     }
     
     /**
@@ -236,7 +237,19 @@ public class WhiteboardCanvas extends JPanel
         int h = (int)(img.getHeight()*scale);
         // Draw the image.
         Graphics2D g = (Graphics2D)canvas.createGraphics();
-        g.drawImage(img, origin.x, origin.y, w, h, null);
+        synchronized (WhiteboardCanvas.class) {
+            g.drawImage(img, origin.x, origin.y, w, h, null);
+        }
+        this.repaint();
+    }
+    
+    public void clearCanvas()
+    {
+        Graphics2D g = (Graphics2D)canvas.createGraphics();
+        g.setBackground(new Color(255, 255, 255, 0));
+        synchronized (WhiteboardCanvas.class) {
+            g.clearRect(0, 0, this.getWidth(), this.getHeight());
+        }
         this.repaint();
     }
 

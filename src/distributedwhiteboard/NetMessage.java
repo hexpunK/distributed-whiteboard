@@ -22,14 +22,14 @@ public abstract class NetMessage
     /** The byte offset for the {@link MessageType} of this message. */
     public static final int TYPE_OFFSET = RELY_OFFSET+UUID_SZ;
     
-    /** The {@link MessageType} of this {@link WhiteboardMessage}. */
+    /** The {@link MessageType} of this {@link NetMessage}. */
     public final MessageType type;
-    /** The last unique ID used as an {@link UUID}. */
-    private static UUID lastID;
-    /** The unique ID for this packet as a {@link UUID}. */
-    private UUID uniqueID;
-    /** Any unique ID this packet relies on as a {@link UUID}. */
-    private UUID requiredID;
+    /** The last unique ID used as an {@link String}. */
+    private static String lastID;
+    /** The unique ID for this packet as a {@link String}. */
+    private String uniqueID;
+    /** Any unique ID this packet relies on as a {@link String}. */
+    private String requiredID;
     
     /**
      * Creates a new {@link NetMessage} with the specified type.
@@ -40,24 +40,28 @@ public abstract class NetMessage
     public NetMessage(MessageType type)
     {
         this.type = type;
-        // Generate and set a new unique ID for this packet.
-        synchronized (NetMessage.class) {
-            if (lastID != null)
-                this.requiredID = lastID;
-            this.uniqueID = UUID.randomUUID();
-            NetMessage.lastID = uniqueID;
-        }
     }
     
     /**
      * Encodes this {@link NetMessage} into a byte array. Implementations of 
      * this abstract class need to implement this as needed for their contents.
      * 
-     * @return Returns a byte array containing an econded copy of this {@link 
-     * NetMessage}.
+     * @return Returns a byte array containing an encoded copy of this {@link 
+     * NetMessage} implementation.
      * @since 1.0
      */
     public abstract byte[] encode();
+    
+    public void addUniqueID()
+    {
+        // Generate and set a new unique ID for this packet.
+        synchronized (NetMessage.class) {
+            if (lastID != null)
+                this.requiredID = lastID;
+            this.uniqueID = UUID.randomUUID().toString();
+            NetMessage.lastID = uniqueID;
+        }
+    }
     
     /**
      * Gets the unique ID for this {@link NetMessage}. This is a {@link String} 
@@ -66,7 +70,7 @@ public abstract class NetMessage
      * @return The unique ID for this message as a String.
      * @since 1.1
      */
-    public String getUniqueID() { return uniqueID.toString(); }
+    public String getUniqueID() { return uniqueID; }
     
     /**
      * Sets the unique ID for this {@link NetMessage} to the provided value. The
@@ -76,7 +80,10 @@ public abstract class NetMessage
      * @param id The String to use as the unique ID for this message.
      * @since 1.1
      */
-    public void setUniqueID(String id) { uniqueID = UUID.fromString(id); }
+    public void setUniqueID(String id) 
+    { 
+        uniqueID = id;
+    }
     
     /**
      * Gets the unique ID of a message that this {@link NetMessage} relies on 
@@ -87,7 +94,7 @@ public abstract class NetMessage
      * ID exists, this will return null;
      * @since 1.1
      */
-    public String getRequiredID() { return requiredID.toString(); }
+    public String getRequiredID() { return requiredID; }
     
     /**
      * Sets the unique ID for a required message for this {@link NetMessage}. 
@@ -97,11 +104,12 @@ public abstract class NetMessage
      * 
      * @param id 
      */
-    public void setRequiredID(String id) { 
-        if (id == null || id.isEmpty())
+    public void setRequiredID(String id)
+    { 
+        if (id == null || id.isEmpty() || id.startsWith("-"))
             requiredID = null;
         else
-            requiredID = UUID.fromString(id); 
+            requiredID = id;
     }
     
     /**
@@ -118,6 +126,21 @@ public abstract class NetMessage
         return MessageType.parseChar(messageStr.charAt(TYPE_OFFSET));
     }
 
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (obj == null) return false;
+        if (!(obj instanceof NetMessage)) return false;
+        NetMessage other = (NetMessage)obj;
+        return this.uniqueID.equals(other.uniqueID);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return this.uniqueID.hashCode();
+    }
+    
     /**
      * Converts the unique ID, required ID and {@link MessageType} of this 
      * {@link NetMessage} to a {@link String} representation.
@@ -130,12 +153,18 @@ public abstract class NetMessage
     {
         StringBuilder sb = new StringBuilder();
         
-        sb.append(uniqueID.toString());
+        if (uniqueID == null) {
+            for (int i = 0; i < UUID_SZ; i++)
+                sb.append("-");
+        } else {
+            sb.append(uniqueID);
+        }
         if (requiredID == null) {
             for (int i = 0; i < UUID_SZ; i++)
-                sb.append(" ");
-        } else
-            sb.append(requiredID.toString());
+                sb.append("-");
+        } else {
+            sb.append(requiredID);
+        }
         sb.append(type.type);
         
         return sb.toString();

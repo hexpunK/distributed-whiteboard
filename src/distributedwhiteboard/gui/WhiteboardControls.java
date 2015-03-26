@@ -3,6 +3,7 @@ package distributedwhiteboard.gui;
 import distributedwhiteboard.Client;
 import distributedwhiteboard.DrawMode;
 import distributedwhiteboard.Pair;
+import distributedwhiteboard.Server;
 import distributedwhiteboard.Triple;
 import distributedwhiteboard.WhiteboardMessage;
 import distributedwhiteboard.gui.WhiteboardMenu.SaveType;
@@ -316,7 +317,9 @@ public final class WhiteboardControls extends JPanel
         WhiteboardMessage msg = new WhiteboardMessage(lastPoint, nextPoint, 
                 colour, lineWeight);
         lastPoint = canvas.drawLine(lastPoint, nextPoint, colour, lineWeight);
+        msg.addUniqueID();
         Client.getInstance().broadCastMessage(msg);
+        Server.messages.put(msg.getUniqueID(), msg);
     }
     
     /**
@@ -355,7 +358,9 @@ public final class WhiteboardControls extends JPanel
             lastPoint = canvas.drawRectangle(firstPoint, rectSize, colour, 
                     fillShape, borderShape, borderWeight, borderColour);
             firstPoint = null; // Reset the origin point.
+            msg.addUniqueID();
             Client.getInstance().broadCastMessage(msg);
+            Server.messages.put(msg.getUniqueID(), msg);
         }
     }
     
@@ -372,7 +377,9 @@ public final class WhiteboardControls extends JPanel
             WhiteboardMessage msg = new WhiteboardMessage(lastPoint, colour, 
                     font, c);
             lastPoint = canvas.drawText(c, lastPoint, font, colour);
+            msg.addUniqueID();
             Client.getInstance().broadCastMessage(msg);
+            Server.messages.put(msg.getUniqueID(), msg);
         }
     }
     
@@ -387,6 +394,7 @@ public final class WhiteboardControls extends JPanel
         if (lastPoint != null && image != null) {
             int scale = scaleSlider.getValue();
             WhiteboardMessage msg = new WhiteboardMessage(lastPoint, scale);
+            msg.addUniqueID();
             Client client = Client.getInstance();
             canvas.drawImage(lastPoint, image, scale/100.f);
             client.broadCastMessage(msg);
@@ -396,6 +404,7 @@ public final class WhiteboardControls extends JPanel
             for (Triple<String, String, Integer> host : hosts) {
                 Client.sendImage(image, new Pair<>(host.Two, host.Three));
             }
+            Server.messages.put(msg.getUniqueID(), msg);
         }
     }
         

@@ -16,6 +16,9 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JSeparator;
+import javax.swing.JSlider;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 /**
@@ -34,14 +37,14 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
     /** The owning component. */
     private final Component parent;
     // The various menus.
-    private final JMenu fileMenu, helpMenu, saveMenu, clientsMenu;
+    private final JMenu fileMenu, demoMenu, saveMenu, clientsMenu;
     // File menu items.
     private final JMenuItem connectItem, portItem, nameItem, disconnectItem, 
             exitItem;
     // A listing of all supported image types to save to.
     private final ArrayList<JMenuItem> saveItems;
     // Help menu iems.
-    private final JMenuItem aboutItem, helpItem;
+    private final JMenuItem redrawItem, lossItem;
     // Icons for the various menu items.
     private final ImageIcon closeIcon, helpIcon, imageIcon, connectIcon, 
             disconnectIcon;
@@ -107,22 +110,22 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         this.fileMenu.add(new JSeparator());
         this.fileMenu.add(this.exitItem);
         
-        this.aboutItem = new JMenuItem("About");
-        this.aboutItem.setMnemonic('a');
+        this.redrawItem = new JMenuItem("Redraw");
+        this.redrawItem.setMnemonic('r');
         
-        this.helpItem = new JMenuItem("Guide", helpIcon);
-        this.helpItem.setMnemonic('g');
+        this.lossItem = new JMenuItem("Packet Loss");
+        this.lossItem.setMnemonic('l');
         
-        this.helpMenu = new JMenu("Help");
-        this.helpMenu.setMnemonic('h');
-        this.helpMenu.add(this.aboutItem);
-        this.helpMenu.add(new JSeparator());
-        this.helpMenu.add(this.helpItem);
+        this.demoMenu = new JMenu("Demo");
+        this.demoMenu.setMnemonic('d');
+        this.demoMenu.add(this.redrawItem);
+        this.demoMenu.add(new JSeparator());
+        this.demoMenu.add(this.lossItem);
         
         this.clientsMenu = new JMenu("Clients");
         
         this.add(this.fileMenu);
-        this.add(this.helpMenu);
+        this.add(this.demoMenu);
         this.add(this.clientsMenu);
         
         setupListeners();
@@ -143,8 +146,8 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         connectItem.addActionListener(this);
         disconnectItem.addActionListener(this);
         exitItem.addActionListener(this);
-        aboutItem.addActionListener(this);
-        helpItem.addActionListener(this);
+        redrawItem.addActionListener(this);
+        lossItem.addActionListener(this);
         
         connectItem.setEnabled(!Client.getInstance().isEnabled());
         disconnectItem.setEnabled(Client.getInstance().isEnabled());
@@ -237,13 +240,15 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         else if (source == portItem) {
             // Change the port.
             String portStr = JOptionPane.showInputDialog(parent, 
-                    "Enter port number:", "Select Port", 
+                    "Enter port number:", 
+                    "Select Port", 
                     JOptionPane.QUESTION_MESSAGE);
             try {
                 server.setPort(Integer.parseInt(portStr));
             } catch (NumberFormatException nfe) {
-                JOptionPane.showMessageDialog(parent, "Port numbers can only be"
-                        + " whole numbers.", "Invalid Port", 
+                JOptionPane.showMessageDialog(parent, 
+                        "Port numbers can only be whole numbers.", 
+                        "Invalid Port", 
                         JOptionPane.ERROR_MESSAGE);
             } catch (IllegalArgumentException ex) {
                 JOptionPane.showMessageDialog(parent, ex.getMessage(), 
@@ -252,14 +257,21 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         } else if (source == nameItem) {
             // Set the users display name.
             String answ = JOptionPane.showInputDialog(parent, 
-                    "Enter display name:", "Set Name", 
+                    "Enter display name:", 
+                    "Set Name", 
                     JOptionPane.QUESTION_MESSAGE);
             String title = String.format("Distributed Whiteboard - %s", answ);
             ((JFrame)parent).setTitle(title);
             Client.getInstance().setClientName(answ);
         }else if (source == connectItem) {
             // Connect to the network.
-            server.startServer();
+            if (!server.startServer()) {
+                JOptionPane.showMessageDialog(parent, 
+                        "Error connecting to the network. Is this port in use?", 
+                        "Connection Error", 
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
             client.startClient();
             connectItem.setEnabled(!client.isEnabled());
             disconnectItem.setEnabled(client.isEnabled());
@@ -269,10 +281,34 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
             client.stopClient();
             connectItem.setEnabled(!client.isEnabled());
             disconnectItem.setEnabled(client.isEnabled());
-        } else if (source == aboutItem)
-            throw new UnsupportedOperationException("About is not implemented.");
-        else if (source == helpItem)
-            throw new UnsupportedOperationException("Help is not implemented.");
+        } else if (source == redrawItem)
+            server.slowRedraw(500);
+        else if (source == lossItem) {
+            final JOptionPane dialog = new JOptionPane();
+            
+            final JSlider slider = new JSlider(0, 100);
+            slider.setValue(Server.getPacketLossRatio());
+            slider.setMajorTickSpacing(10);
+            slider.setPaintLabels(true);
+            slider.setPaintTicks(true);
+            slider.addChangeListener(new ChangeListener()
+            {
+                @Override
+                public void stateChanged(ChangeEvent e)
+                {
+                    if (!slider.getValueIsAdjusting())
+                        dialog.setInputValue((int)slider.getValue());
+                }
+            });
+            
+            dialog.setMessage(new Object[] {"Packet Loss (%):", slider});
+            dialog.setMessageType(JOptionPane.QUESTION_MESSAGE);
+            dialog.setOptionType(JOptionPane.OK_CANCEL_OPTION);
+            dialog.setInputValue(Server.getPacketLossRatio());
+            dialog.createDialog("Set Packet Loss").setVisible(true);
+            
+            Server.setPacketLossRatio((int)dialog.getInputValue());
+        }
     }
     
     /**

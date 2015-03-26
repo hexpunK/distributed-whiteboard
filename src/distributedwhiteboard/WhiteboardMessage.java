@@ -5,6 +5,7 @@ import java.awt.Font;
 import java.awt.Point;
 import java.awt.font.TextAttribute;
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -346,7 +347,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                 String scl = messageStr.substring(POINT_TWO_OFFSET);
                 
                 if (scl == null || scl.isEmpty()) return null;
-                int scaling = 0;
+                int scaling;
                 try {
                     scaling = Integer.parseInt(scl);
                 } catch (NumberFormatException nfe) {
@@ -569,5 +570,19 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         }
         
         return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (obj == null) return false;
+        if (!(obj instanceof WhiteboardMessage)) return false;
+        return super.equals(obj);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return super.hashCode();
     }
 }

@@ -18,7 +18,9 @@ public enum MessageType
     /** A client is looking for other clients to communicate with. */
     DISCOVERY('f'),
     /** A client is responding to a {@link MessageType#DISCOVERY} message. */
-    RESPONSE('r');
+    RESPONSE('r'),
+    /** Sent over multicast to request a missing packet. */
+    MISSING_PACKET('m');
         
     public final char type;
     private MessageType(char value) { this.type = value; }

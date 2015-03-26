@@ -24,8 +24,8 @@ import javax.imageio.ImageIO;
  *  a peer-to-peer network to communicate over.
  * 
  * @author 6266215
- * @version 1.4
- * @since 2015-03-17
+ * @version 1.5
+ * @since 2015-03-26
  */
 public class Client implements Runnable
 {
@@ -96,6 +96,10 @@ public class Client implements Runnable
         discoveryThread.setName("Multicast listener");
         discoveryThread.start();
         
+        WhiteboardGUI.getInstance().setTitle(
+                String.format("Distributed Whiteboard - %s", this.thisName)
+        );
+        
         while (!isSending) {}
         discoverClients();
     }
@@ -130,6 +134,7 @@ public class Client implements Runnable
         } catch (InterruptedException ex) { }
         knownHosts.clear();
         WhiteboardGUI.getInstance().updateClientList();
+        System.out.println("Stopped network discovery.");
     }
     
     /**
@@ -354,6 +359,34 @@ public class Client implements Runnable
     }
     
     /**
+     * Sends a request for a certain packet out over multicast. If any clients 
+     * know of the packet they will send it to this host over UDP.
+     * 
+     * @param uuid The unique ID of the missing packet as a {@link String}.
+     * @since 1.5
+     */
+    public void requestPacket(String uuid)
+    {
+        if (multicast.Left == null) return; // No multicast group.
+        
+        DatagramPacket packet;
+        
+        PacketRequestMessage request = new PacketRequestMessage(thisHost.Left, 
+                thisHost.Right, uuid);
+        
+        byte[] buffer = request.encode();
+        try (MulticastSocket sender = new MulticastSocket()) {
+            packet = new DatagramPacket(buffer, buffer.length, 
+                    multicast.Left, multicast.Right);
+            sender.send(packet);
+            System.out.println("Requesting packet.");
+        } catch (IOException ex) {
+            System.err.println("Failed to send discovery message.");
+            System.err.println(ex.getMessage());
+        }
+    }
+    
+    /**
      * Responds to another instance of this program that is discovering new 
      * hosts to connect to by sending a {@link DiscoveryResponse} containing the
      *  IP address and UDP port of this host.
@@ -373,6 +406,31 @@ public class Client implements Runnable
         
         sendMessage(new DiscoveryResponse(thisName, thisHost.Left, 
                 thisHost.Right), request.IP, request.Port);
+    }
+    
+    /**
+     * Sends a missing packet to the host that requested it. This relies on the 
+     * client knowing the packet with the unique ID specified within the 
+     * message.
+     * 
+     * @param message A {@link PacketRequestMessage} that contains the unique 
+     * ID to search for and the host details to send it to.
+     * @since 1.5
+     */
+    private void sendMissingPacket(PacketRequestMessage message)
+    {
+        Pair<String, Integer> sourcePair = 
+                new Pair<>(message.SourceIP, message.SourcePort);
+        if (sourcePair.equals(thisHost)) return;
+        
+        String uuid = message.getRequiredID();
+        if (uuid != null && !uuid.isEmpty()) {
+            NetMessage foundMsg = Server.messages.get(uuid);
+            if (foundMsg != null) {
+                System.out.println("Sending missing packet.");
+                sendMessage(foundMsg, message.SourceIP, message.SourcePort);
+            }
+        }
     }
 
     /**
@@ -406,22 +464,30 @@ public class Client implements Runnable
         
         isSending = true;
         System.out.println("Started network discovery.");
+        NetMessage msg;
         while(isSending) {
             try {
                 byte[] buff = new byte[BUFFER_SIZE];
                 DatagramPacket packet = new DatagramPacket(buff, buff.length);
                 receiver.receive(packet);
                 System.out.println("Received a mutlicast packet.");
-                DiscoveryMessage msg = DiscoveryMessage.decode(buff);
-                if (msg == null) {
-                    System.err.println("Error decoding DiscoveryMessage.");
-                } else if (msg.type == MessageType.DISCOVERY) {
-                    sendDiscoveryResponse(msg);
+                MessageType type = NetMessage.getMessageType(buff);
+                switch (type) {
+                    case DISCOVERY:
+                        msg = DiscoveryMessage.decode(buff);
+                        if (msg != null)
+                            sendDiscoveryResponse((DiscoveryMessage)msg);
+                        break;
+                    case MISSING_PACKET:
+                        msg = PacketRequestMessage.decode(buff);
+                        if (msg != null)
+                            sendMissingPacket((PacketRequestMessage)msg);
+                        break;
                 }
             } catch (IOException ex) {
                 if (!isSending) return; // Socket closed.
-                System.err.println("bfdgsvsf");
-                System.err.println(ex.getMessage());
+                System.err.printf("Client multicast reciever error:%n%s", 
+                        ex.getMessage());
             }
         }
     }
