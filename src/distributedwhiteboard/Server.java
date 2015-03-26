@@ -18,10 +18,10 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Queue;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import javax.imageio.ImageIO;
 
 /**
@@ -57,11 +57,13 @@ public class Server implements Runnable
     private String hostName;
     /** The {@link Thread} to run this server in the background on. */
     private Thread serverThread;
+    /** A {@link Thread} to handle the slow redrawing. */
+    private Thread redrawThread;
     /** Lets the server continue to execute in the background. */
     private volatile boolean runServer;
     /** Contains a history of all received {@link NetMessage}s. */
-    public static final ConcurrentHashMap<String, NetMessage> messages 
-            = new ConcurrentHashMap<>();
+    public static final HashMap<String, NetMessage> messages 
+            = new HashMap<>();
     /** Holds a buffer of {@link NetMessage}s that need requesting. */
     private Queue<NetMessage> messageBuffer;
     
@@ -83,7 +85,7 @@ public class Server implements Runnable
         } catch (UnknownHostException ex) {
             this.hostName = "UNKNOWN";
         }
-        this.messageBuffer = new ConcurrentLinkedQueue<>(); //HashSet<>();
+        this.messageBuffer = new LinkedBlockingQueue<>();
     }
     
     /**
@@ -112,7 +114,7 @@ public class Server implements Runnable
         } catch (UnknownHostException ex) {
             this.hostName = "UNKNOWN";
         }
-        this.messageBuffer = new ConcurrentLinkedQueue<>();
+        this.messageBuffer = new LinkedBlockingQueue<>();
     }
     
     /**
@@ -246,6 +248,10 @@ public class Server implements Runnable
                 tcpServer.close();
             if (serverThread != null)
                 serverThread.join();
+            if (redrawThread != null) {
+                redrawThread.interrupt();
+                redrawThread.join();
+            }
         } catch (InterruptedException iEx) {
             serverError("Server interrupted during shutdown!%n%s", 
                     iEx.getMessage());
@@ -473,9 +479,15 @@ public class Server implements Runnable
         client.removeHost(new Triple<>(msg.Name, msg.IP, msg.Port));
     }
     
+    /**
+     * Slowly redraws all the previous messages this {@link Server} has stored.
+     * 
+     * @param ms The delay between drawing operations in milliseconds.
+     * @since 1.5
+     */
     public void slowRedraw(final int ms)
     {
-        new Thread(new Runnable()
+        redrawThread = new Thread(new Runnable()
         {
             @Override
             public void run()
@@ -486,23 +498,25 @@ public class Server implements Runnable
                 WhiteboardGUI.getInstance().getCanvas().clearCanvas();
                 while (drawn < messages.size()) {
                     for (NetMessage message : messages.values()) {
-                        if ( message.getRequiredID() == null ||
-                                (message.getRequiredID().equals(lastID)
-                                && message instanceof WhiteboardMessage)) {
-                            System.out.printf("Lsat ID: %s - Current ID: %s", lastID == null ? "null" : lastID, message.getUniqueID());
-                            System.out.printf("Drawn %d - Size %d%n", drawn, messages.size());
+                        if ((lastID == null && message.getRequiredID() == null) 
+                                || (lastID != null 
+                                    && message.getRequiredID() != null
+                                    && message.getRequiredID().equals(lastID)
+                                    && message instanceof WhiteboardMessage)) {
+                            System.out.printf("Last ID: %s - Current ID: %s", lastID == null ? "null" : lastID, message.getUniqueID());
+                            System.out.printf("Drawn %d - Size %d%n", ++drawn, messages.size());
                             lastID = message.getUniqueID();
                             handleWhiteboardMessage((WhiteboardMessage)message);
-                            drawn++;
                             break;
                         }
                     }
                     try {
-                                Thread.sleep(ms);
-                            } catch (InterruptedException ex) {}
+                        Thread.sleep(ms);
+                    } catch (InterruptedException ex) { break; }
                 }
             }
-        }).start();
+        });
+        redrawThread.start();
     }
     
     /**

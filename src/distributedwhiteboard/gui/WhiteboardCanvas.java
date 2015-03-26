@@ -230,8 +230,8 @@ public class WhiteboardCanvas extends JPanel
     {
         if (img == null || scale <= 0.0f) return;
         // Clamp the value.
-        scale = Float.max(0.1f, scale);
-        scale = Float.min(1.0f, scale);
+        scale = Math.max(0.1f, scale);
+        scale = Math.min(1.0f, scale);
         // Scale the width and height.
         int w = (int)(img.getWidth()*scale);
         int h = (int)(img.getHeight()*scale);

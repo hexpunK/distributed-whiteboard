@@ -14,6 +14,7 @@ import java.net.MulticastSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import javax.imageio.ImageIO;
@@ -184,12 +185,8 @@ public class Client implements Runnable
      */
     public synchronized void removeHost(Triple<String, String, Integer> host)
     {
-        for (Triple<String, String, Integer> h : knownHosts) {
-            if (h.Two.equals(host.Two) && h.Three.equals(host.Three)) {
-                knownHosts.remove(host);
-                WhiteboardGUI.getInstance().updateClientList();
-            }
-        }
+        knownHosts.remove(host);
+        WhiteboardGUI.getInstance().updateClientList();
     }
     
     /**

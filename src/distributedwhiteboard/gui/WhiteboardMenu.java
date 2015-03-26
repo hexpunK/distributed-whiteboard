@@ -40,7 +40,7 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
     private final JMenu fileMenu, demoMenu, saveMenu, clientsMenu;
     // File menu items.
     private final JMenuItem connectItem, portItem, nameItem, disconnectItem, 
-            exitItem;
+            exitItem, clearItem;
     // A listing of all supported image types to save to.
     private final ArrayList<JMenuItem> saveItems;
     // Help menu iems.
@@ -99,6 +99,9 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         this.exitItem = new JMenuItem("Exit", closeIcon);
         this.exitItem.setMnemonic('x');
         
+        this.clearItem = new JMenuItem("Reset");
+        this.clearItem.setMnemonic('r');
+        
         this.fileMenu = new JMenu("File");
         this.fileMenu.setMnemonic('f');
         this.fileMenu.add(this.connectItem);
@@ -107,6 +110,7 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         this.fileMenu.add(this.disconnectItem);
         this.fileMenu.add(new JSeparator());
         this.fileMenu.add(this.saveMenu);
+        this.fileMenu.add(this.clearItem);
         this.fileMenu.add(new JSeparator());
         this.fileMenu.add(this.exitItem);
         
@@ -146,6 +150,7 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         connectItem.addActionListener(this);
         disconnectItem.addActionListener(this);
         exitItem.addActionListener(this);
+        clearItem.addActionListener(this);
         redrawItem.addActionListener(this);
         lossItem.addActionListener(this);
         
@@ -230,14 +235,17 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
         Client client = Client.getInstance();
         
         if (source instanceof JMenuItem 
-                && saveItems.contains((JMenuItem)source))
+                && saveItems.contains((JMenuItem)source)) {
             // Save the current canvas to a file based on the button clicked.
             saveImage(ae);
-        else if (source == exitItem)
+        } else if (source == clearItem) {
+            // Clear the canvas.
+            WhiteboardGUI.getInstance().getCanvas().clearCanvas();
+        } else if (source == exitItem) {
             // Quit the application.
             parent.dispatchEvent(new WindowEvent((JFrame)parent, 
                     WindowEvent.WINDOW_CLOSING));
-        else if (source == portItem) {
+        } else if (source == portItem) {
             // Change the port.
             String portStr = JOptionPane.showInputDialog(parent, 
                     "Enter port number:", 
@@ -281,9 +289,11 @@ public final class WhiteboardMenu extends JMenuBar implements ActionListener
             client.stopClient();
             connectItem.setEnabled(!client.isEnabled());
             disconnectItem.setEnabled(client.isEnabled());
-        } else if (source == redrawItem)
-            server.slowRedraw(500);
-        else if (source == lossItem) {
+        } else if (source == redrawItem) {
+            // Slowly redraw the canvas.
+            server.slowRedraw(100);
+        } else if (source == lossItem) {
+            // Change the packet loss simulation setting.
             final JOptionPane dialog = new JOptionPane();
             
             final JSlider slider = new JSlider(0, 100);

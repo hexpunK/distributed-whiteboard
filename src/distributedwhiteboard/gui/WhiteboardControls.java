@@ -4,6 +4,7 @@ import distributedwhiteboard.Client;
 import distributedwhiteboard.DrawMode;
 import distributedwhiteboard.Pair;
 import distributedwhiteboard.Server;
+import static distributedwhiteboard.Server.messages;
 import distributedwhiteboard.Triple;
 import distributedwhiteboard.WhiteboardMessage;
 import distributedwhiteboard.gui.WhiteboardMenu.SaveType;
