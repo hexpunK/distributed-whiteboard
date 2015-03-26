@@ -14,7 +14,6 @@ import java.net.MulticastSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import javax.imageio.ImageIO;
@@ -334,6 +333,7 @@ public class Client implements Runnable
      * Sends out a multicast message to try and find other clients on the 
      * network to communicate drawings to.
      * 
+     * @since 1.0
      */
     public void discoverClients()
     {
