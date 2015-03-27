@@ -20,7 +20,9 @@ public enum MessageType
     /** A client is responding to a {@link MessageType#DISCOVERY} message. */
     RESPONSE('r'),
     /** Sent over multicast to request a missing packet. */
-    MISSING_PACKET('m');
+    MISSING_PACKET('m'),
+    /** Requests an image from all hosts over multicast. */
+    IMAGE_REQUEST('i');
         
     public final char type;
     private MessageType(char value) { this.type = value; }

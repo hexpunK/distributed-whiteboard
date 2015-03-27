@@ -13,7 +13,7 @@ public class PacketRequestMessage extends NetMessage
     /** The number of characters in an encoded port. */
     private static final int PORT_SIZE = 5;
     
-    /** The character offset in the message for the start of the SourceIP address. */
+    /** The character offset for the start of the SourceIP address. */
     private static final int IP_OFFSET = TYPE_OFFSET+1;
     /** The character offset in the message for the start of the port number. */
     private static final int PORT_OFFSET = IP_OFFSET+IP_SIZE;

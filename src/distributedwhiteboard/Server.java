@@ -62,10 +62,16 @@ public class Server implements Runnable
     /** Lets the server continue to execute in the background. */
     private volatile boolean runServer;
     /** Contains a history of all received {@link NetMessage}s. */
-    public static final HashMap<String, NetMessage> messages 
-            = new HashMap<>();
+    public static final HashMap<String, NetMessage> messages = 
+            new HashMap<>();
     /** Holds a buffer of {@link NetMessage}s that need requesting. */
     private Queue<NetMessage> messageBuffer;
+    /** 
+     * A mapping of {@link BufferedImage}s that this {@link Server} knows to
+     * their unique hash codes. 
+     */
+    public static final HashMap<Integer, BufferedImage> images = 
+            new HashMap<>();
     
     /**
      * Creates a new instance of {@link Server}. This is private to force usage 
@@ -168,6 +174,13 @@ public class Server implements Runnable
         System.out.printf("Set server packet loss to %d%%%n", PACKET_LOSS);
     }
     
+    /**
+     * Gets the ratio used for simulating packet loss across all {@link Server} 
+     * instances.
+     * 
+     * @return The ratio for packet loss as an int between 0 to 100 (inclusive).
+     * @since 1.5
+     */
     public static int getPacketLossRatio() { return PACKET_LOSS; }
     
     /**
@@ -250,7 +263,7 @@ public class Server implements Runnable
                 serverThread.join();
             if (redrawThread != null) {
                 redrawThread.interrupt();
-                redrawThread.join();
+                redrawThread.join(500);
             }
         } catch (InterruptedException iEx) {
             serverError("Server interrupted during shutdown!%n%s", 
@@ -261,6 +274,16 @@ public class Server implements Runnable
         serverMessage("Server stopped", hostName, port);
     }
     
+    /**
+     * Processes a received packet and handles the contained message in the 
+     * correct way for its {@link MessageType}.
+     * 
+     * @param buffer The byte buffer of the packet to handle.
+     * @return Returns true if the packet could be processed, false if the 
+     * packet was invalid of if the packet was dropped due to simulated packet 
+     * loss.
+     * @since 1.2
+     */
     private boolean processPacket(byte[] buffer)
     {
         NetMessage msg;
@@ -350,8 +373,15 @@ public class Server implements Runnable
                         msg.drawColour);
                 break;
             case IMAGE:
-                serverMessage("Preparing to receive image.");
-                BufferedImage i = receiveImage();
+                BufferedImage i = images.get(msg.imageHash);
+                if (i == null) {
+                    serverMessage("Preparing to receive image.");
+                    Client.getInstance().requestImage(msg.imageHash);
+                    i = receiveImage();
+                    if (i == null) return;
+                    images.put(msg.imageHash, i);
+                    serverMessage("Cached new image (%d)", msg.imageHash);
+                }
                 canvas.drawImage(msg.startPoint, i, msg.imageScale);
                 break;
             default:
@@ -493,27 +523,31 @@ public class Server implements Runnable
             public void run()
             {
                 String lastID = null;
-                int drawn = 0;
                 System.out.println("Redrawing...");
                 WhiteboardGUI.getInstance().getCanvas().clearCanvas();
-                while (drawn < messages.size()) {
-                    for (NetMessage message : messages.values()) {
-                        if ((lastID == null && message.getRequiredID() == null) 
+                HashMap<String, NetMessage> msgCopy = (HashMap)messages.clone();
+                while (!msgCopy.isEmpty()) {
+                    for (NetMessage message : msgCopy.values()) {
+                        if (message.getRequiredID() == null
                                 || (lastID != null 
                                     && message.getRequiredID() != null
                                     && message.getRequiredID().equals(lastID)
                                     && message instanceof WhiteboardMessage)) {
-                            System.out.printf("Last ID: %s - Current ID: %s", lastID == null ? "null" : lastID, message.getUniqueID());
-                            System.out.printf("Drawn %d - Size %d%n", ++drawn, messages.size());
-                            lastID = message.getUniqueID();
+                            System.out.printf("Last Message: %s - Current Message: %s - Required Message: %s%n", 
+                                    lastID == null ? "null" : lastID, 
+                                    message.getUniqueID() == null ? "null" : message.getUniqueID(), 
+                                    message.getRequiredID() == null ? "null" : message.getUniqueID());
+                            msgCopy.remove(message.getUniqueID());
                             handleWhiteboardMessage((WhiteboardMessage)message);
+                            lastID = message.getUniqueID();
                             break;
                         }
                     }
                     try {
                         Thread.sleep(ms);
-                    } catch (InterruptedException ex) { break; }
+                    } catch (InterruptedException ex) { return; }
                 }
+                System.out.println("Finished redrawing.");
             }
         });
         redrawThread.start();

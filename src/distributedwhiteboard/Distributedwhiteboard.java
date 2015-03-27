@@ -18,14 +18,35 @@ public class Distributedwhiteboard
      * @param args the command line arguments
      */
     public static void main(String[] args) 
-    {        
-        SwingUtilities.invokeLater(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                WhiteboardGUI.getInstance();
+    {
+        boolean runAutomated = false;
+        
+        for(String arg : args) {
+            if (arg.equals("--robot") || arg.equals("-r")) {
+                runAutomated = true;
+                break;
             }
-        });
+        }
+        
+        if (runAutomated) {
+            System.out.println("Running automated Whiteboard client.");
+            RoboClient robot = new RoboClient();
+            Thread robotThread = new Thread(robot);
+            robotThread.start();
+            try {
+                robotThread.join();
+            } catch (InterruptedException ex) {
+                System.err.println("Robot interrupted.");
+            }
+        } else {
+            SwingUtilities.invokeLater(new Runnable()
+            {
+                @Override
+                public void run()
+                {
+                    WhiteboardGUI.getInstance();
+                }
+            });
+        }
     }
 }

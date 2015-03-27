@@ -2,10 +2,7 @@ package distributedwhiteboard.gui;
 
 import distributedwhiteboard.Client;
 import distributedwhiteboard.DrawMode;
-import distributedwhiteboard.Pair;
 import distributedwhiteboard.Server;
-import static distributedwhiteboard.Server.messages;
-import distributedwhiteboard.Triple;
 import distributedwhiteboard.WhiteboardMessage;
 import distributedwhiteboard.gui.WhiteboardMenu.SaveType;
 import java.awt.CardLayout;
@@ -28,7 +25,8 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
-import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -121,6 +119,8 @@ public final class WhiteboardControls extends JPanel
     private boolean fillShape, borderShape;
     // Image to draw to the screen.
     private BufferedImage image;
+    
+    private long lastUpdateTime;
     
     /**
      * Set up a new set of {@link WhiteboardControls} for a specified {@link 
@@ -223,6 +223,7 @@ public final class WhiteboardControls extends JPanel
         this.borderWeight = 1;
         this.borderColour = Color.WHITE;
         this.image = null;
+        this.lastUpdateTime = 0;
         
         setupLayout();
     }
@@ -374,6 +375,11 @@ public final class WhiteboardControls extends JPanel
      */
     private void drawText(char c)
     {
+        // Avoid working on non-printing characters.
+        Pattern p = Pattern.compile("[\\x00\\x08\\x0B\\x0C\\x0E-\\x1F]");
+        Matcher m = p.matcher(String.valueOf(c));
+        if (m.matches()) return;
+        
         if (lastPoint != null) {
             WhiteboardMessage msg = new WhiteboardMessage(lastPoint, colour, 
                     font, c);
@@ -394,17 +400,13 @@ public final class WhiteboardControls extends JPanel
     {
         if (lastPoint != null && image != null) {
             int scale = scaleSlider.getValue();
-            WhiteboardMessage msg = new WhiteboardMessage(lastPoint, scale);
+            WhiteboardMessage msg = 
+                    new WhiteboardMessage(lastPoint, scale, image.hashCode());
             msg.addUniqueID();
             Client client = Client.getInstance();
             canvas.drawImage(lastPoint, image, scale/100.f);
             client.broadCastMessage(msg);
-            Set<Triple<String, String, Integer>> hosts = client.getKnownHosts();
-            // Send the image out to all know hosts.
-            System.out.printf("Sending image to %d hosts %n", hosts.size());
-            for (Triple<String, String, Integer> host : hosts) {
-                Client.sendImage(image, new Pair<>(host.Two, host.Three));
-            }
+            Server.images.put(image.hashCode(), image);
             Server.messages.put(msg.getUniqueID(), msg);
         }
     }
@@ -791,11 +793,17 @@ public final class WhiteboardControls extends JPanel
     {
         switch(mode) {
             case FREEFORM_LINE:
+                long curTime = System.currentTimeMillis();
+                // Limit how regularly new line segments are created to avoid 
+                // saturating the network with line segments.
+                if ((curTime - lastUpdateTime) < 50) break;
+                lastUpdateTime = curTime;
                 Point nextPoint = e.getPoint();
                 if (!nextPoint.equals(lastPoint))
                     drawLine(e.getPoint());
                 break;
         }
+    
     }
     
     /**

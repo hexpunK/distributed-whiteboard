@@ -56,6 +56,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
     public final char textChar;
     /** The scale of the image as a multiplier. Clamped between 0.0  and 1.0. */
     public final float imageScale;
+    public final int imageHash;
     
     /**
      * Creates a {@link WhiteboardMessage} with no contents, this is usually 
@@ -78,6 +79,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         this.font = new Font("Serif", Font.PLAIN, 12);
         this.textChar = '\0';
         this.imageScale = 0;
+        this.imageHash = 0;
     }
     
     /**
@@ -105,6 +107,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         this.font = new Font("Serif", Font.PLAIN, 12);
         this.textChar = '\0';
         this.imageScale = 0;
+        this.imageHash = 0;
     }
     
     /**
@@ -137,6 +140,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         this.font = new Font("Serif", Font.PLAIN, 12);
         this.textChar = '\0';
         this.imageScale = 0;
+        this.imageHash = 0;
     }
     
     /**
@@ -163,6 +167,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         this.font = f;
         this.textChar = text;
         this.imageScale = 0;
+        this.imageHash = 0;
     }
     
     /**
@@ -177,7 +182,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
  100, and will be divided by 100 to create a multiplier.
      * @since 1.2
      */
-    public WhiteboardMessage(Point p1, int scale)
+    public WhiteboardMessage(Point p1, int scale, int hash)
     {
         super(MessageType.DRAW);
         this.mode = DrawMode.IMAGE;
@@ -192,6 +197,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
         this.font = new Font("Serif", Font.PLAIN, 12);
         this.textChar = '\0';
         this.imageScale = scale/100.0f;
+        this.imageHash = hash;
     }
         
     /**
@@ -252,8 +258,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                 weight = Integer.valueOf(messageStr.substring(WEIGHT_OFFSET,
                         WEIGHT_OFFSET+2));
                 
-                if (m == null || p1 == null || p2 == null || col == null 
-                        || weight < 1)
+                if (m == null || p1 == null || p2 == null || col == null)
                     return null;
                 
                 msg = new WhiteboardMessage(p1, p2, col, weight);
@@ -279,7 +284,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                         BORDER_W_OFFSET+2));
                 
                 if (m == null || p1 == null || p2 == null || col == null 
-                        || borderCol == null || weight < 1)
+                        || borderCol == null)
                     return null;
                 
                 msg = new WhiteboardMessage(p1, p2, col, weight, fill, 
@@ -302,18 +307,29 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                 msg.setRequiredID(rID);
                 return msg;
             case IMAGE:
-                String scl = messageStr.substring(POINT_TWO_OFFSET);
+                String sclStr = messageStr.substring(POINT_TWO_OFFSET, 
+                        POINT_TWO_OFFSET+3);
+                String hashStr = messageStr.substring(POINT_TWO_OFFSET+3);
                 
-                if (scl == null || scl.isEmpty()) return null;
+                if (sclStr == null || sclStr.isEmpty()) return null;
                 int scaling;
                 try {
-                    scaling = Integer.parseInt(scl);
+                    scaling = Integer.parseInt(sclStr);
                 } catch (NumberFormatException nfe) {
                     System.err.println("Scaling value was not a number.");
                     return null;
                 }
                 
-                msg = new WhiteboardMessage(p1, scaling);
+                if (hashStr == null || hashStr.isEmpty()) return null;
+                int hash;
+                try {
+                    hash = Integer.parseInt(hashStr);
+                } catch (NumberFormatException nfe) {
+                    System.err.println("Image hash value was not a number.");
+                    return null;
+                }
+                
+                msg = new WhiteboardMessage(p1, scaling, hash);
                 msg.setUniqueID(uID);
                 msg.setRequiredID(rID);
                 return msg;                
@@ -361,6 +377,7 @@ public class WhiteboardMessage extends NetMessage implements Serializable
                 break;
             case IMAGE:
                 sb.append(String.format("%03d", (int)(imageScale*100)));
+                sb.append(String.format("%010d", imageHash));
         }
         
         return sb.toString();
