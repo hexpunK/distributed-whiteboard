@@ -147,10 +147,11 @@ public class WhiteboardMessage extends NetMessage implements Serializable
      * Creates a new {@link WhiteboardMessage} that contains a message to draw 
      * the specified character in the provided {@link Font}.
      * 
-     * @param p1
-     * @param drawCol
-     * @param f
-     * @param text 
+     * @param p1 The origin for the text to render from as a {@link Point}.
+     * @param drawCol The {@link Color} to draw the text with.
+     * @param f The {@link Font} for the text.
+     * @param text A character to draw using the previous specified settings.
+     * @since 1.0
      */
     public WhiteboardMessage(Point p1, Color drawCol, Font f, char text)
     {
@@ -179,7 +180,8 @@ public class WhiteboardMessage extends NetMessage implements Serializable
      * 
      * @param p1 The top-left corner position of the image as a {@link Point}.
      * @param scale The scaling of the image. This mode must be between 0 and 
- 100, and will be divided by 100 to create a multiplier.
+     * 100, and will be divided by 100 to create a multiplier.
+     * @param hash The unique hash code for the image to be drawn.
      * @since 1.2
      */
     public WhiteboardMessage(Point p1, int scale, int hash)

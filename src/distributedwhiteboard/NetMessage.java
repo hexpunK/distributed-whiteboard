@@ -102,7 +102,7 @@ public abstract class NetMessage
      * specified in the documentation for {@link UUID#toString()}. If an null 
      * or empty String is provided, the required ID will be null.
      * 
-     * @param id 
+     * @param id The unique ID that this {@link NetMessage} relies on.
      */
     public void setRequiredID(String id)
     { 

@@ -1,5 +1,7 @@
 package distributedwhiteboard;
 
+import distributedwhiteboard.gui.WhiteboardCanvas;
+
 /**
  * {@link DiscoveryMessage} is an abstract class that represents the base for a 
  * variety of messages that are used in the network discovery protocol for the 
