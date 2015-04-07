@@ -297,7 +297,7 @@ public class Server implements Runnable
             case DRAW:
                 msg = WhiteboardMessage.decode(buffer);
                 int ranVal = new Random().nextInt(100);
-                if (ranVal <= PACKET_LOSS) {
+                if (PACKET_LOSS > 0 && ranVal <= PACKET_LOSS) {
                     serverMessage("Dropped a packet.");
                     return false;
                 }
@@ -529,23 +529,27 @@ public class Server implements Runnable
                 HashSet<String> handledIDS = new HashSet<>();
                 boolean missingMessage = false;
                 boolean complete = false;
+                boolean allowNull = true;
                 while (!complete) {
                     complete = true;
                     for (NetMessage message : messages.values()) {
+                        // We don't care about messages we've handled already.
                         if (!handledIDS.contains(message.getUniqueID())) {
                             complete = false;
-                        }
+                        } else 
+                            continue;
+                        
                         missingMessage = true;
-                        if (!handledIDS.contains(message.getUniqueID())
-                                && message.getRequiredID() == null
+                        if (allowNull && message.getRequiredID() == null
                                 || (lastID != null 
                                     && message.getRequiredID() != null
                                     && message.getRequiredID().equals(lastID)
                                     && message instanceof WhiteboardMessage)) {
-                            System.out.printf("Last Message: %s - Current Message: %s - Required Message: %s%n", 
-                                    lastID == null ? "null" : lastID, 
-                                    message.getUniqueID() == null ? "null" : message.getUniqueID(), 
-                                    message.getRequiredID() == null ? "null" : message.getUniqueID());
+                            // If we just accepted a null required message stop
+                            // accepting others.
+                            if (allowNull && message.getRequiredID() == null)
+                                allowNull = false;
+                            
                             handleWhiteboardMessage((WhiteboardMessage)message);
                             lastID = message.getUniqueID();
                             missingMessage = false;
@@ -553,14 +557,17 @@ public class Server implements Runnable
                             break;
                         }
                     }
+                    // If we're blocking null messages but can't find a message,
+                    // it might be worth allowing null required messages again.
+                    if (!allowNull && missingMessage) allowNull = true;
+                    
                     if (missingMessage && lastID != null) {
                         Client.getInstance().requestPacket(lastID);
                     }
-                    try {
-                        Thread.sleep(ms);
-                    } catch (InterruptedException ex) { return; }
+                    // Wait a few ms.
+                    try { Thread.sleep(ms); } 
+                    catch (InterruptedException ex) { return; }
                 }
-                System.out.printf("Messages: %d\tHandled: %d%n", messages.size(), handledIDS.size());
                 System.out.println("Finished redrawing.");
             }
         });

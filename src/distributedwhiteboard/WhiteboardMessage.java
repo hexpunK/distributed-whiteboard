@@ -3,10 +3,7 @@ package distributedwhiteboard;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.Point;
-import java.awt.font.TextAttribute;
 import java.io.Serializable;
-import java.util.HashMap;
-import java.util.Map;
 import static distributedwhiteboard.Conversions.*;
 
 /**
