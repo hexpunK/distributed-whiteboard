@@ -19,6 +19,7 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -525,10 +526,18 @@ public class Server implements Runnable
                 String lastID = null;
                 System.out.println("Redrawing...");
                 WhiteboardGUI.getInstance().getCanvas().clearCanvas();
-                HashMap<String, NetMessage> msgCopy = (HashMap)messages.clone();
-                while (!msgCopy.isEmpty()) {
-                    for (NetMessage message : msgCopy.values()) {
-                        if (message.getRequiredID() == null
+                HashSet<String> handledIDS = new HashSet<>();
+                boolean missingMessage = false;
+                boolean complete = false;
+                while (!complete) {
+                    complete = true;
+                    for (NetMessage message : messages.values()) {
+                        if (!handledIDS.contains(message.getUniqueID())) {
+                            complete = false;
+                        }
+                        missingMessage = true;
+                        if (!handledIDS.contains(message.getUniqueID())
+                                && message.getRequiredID() == null
                                 || (lastID != null 
                                     && message.getRequiredID() != null
                                     && message.getRequiredID().equals(lastID)
@@ -537,16 +546,21 @@ public class Server implements Runnable
                                     lastID == null ? "null" : lastID, 
                                     message.getUniqueID() == null ? "null" : message.getUniqueID(), 
                                     message.getRequiredID() == null ? "null" : message.getUniqueID());
-                            msgCopy.remove(message.getUniqueID());
                             handleWhiteboardMessage((WhiteboardMessage)message);
                             lastID = message.getUniqueID();
+                            missingMessage = false;
+                            handledIDS.add(message.getUniqueID());
                             break;
                         }
+                    }
+                    if (missingMessage && lastID != null) {
+                        Client.getInstance().requestPacket(lastID);
                     }
                     try {
                         Thread.sleep(ms);
                     } catch (InterruptedException ex) { return; }
                 }
+                System.out.printf("Messages: %d\tHandled: %d%n", messages.size(), handledIDS.size());
                 System.out.println("Finished redrawing.");
             }
         });
