@@ -243,6 +243,11 @@ public class WhiteboardCanvas extends JPanel
         this.repaint();
     }
     
+    /**
+     * Clears the contents of the canvas and sets the background to white.
+     * 
+     * @since 1.2
+     */
     public void clearCanvas()
     {
         Graphics2D g = (Graphics2D)canvas.createGraphics();
